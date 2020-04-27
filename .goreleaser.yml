@@ -1,0 +1,27 @@
+archives:
+  - format: tar.gz
+    replacements:
+      amd64: x86_64
+      darwin: macOS
+      linux: Linux
+      windows: Windows
+    format_overrides:
+      - goos: windows
+        format: zip
+
+build:
+  binary: shelly-updater
+  env:
+    - CGO_ENABLED=0
+  goos:
+    - darwin
+    - linux
+    - windows
+  goarch:
+    - amd64
+  main: .
+
+dockers:
+ - image_templates:
+    - "ruimarinho/shelly-updater:latest"
+    - "ruimarinho/shelly-updater:{{ .Version }}"
