@@ -198,9 +198,7 @@ func (o *OTAUpdater) Devices() (map[string]*Device, error) {
 // UpgradeDevice requests a device to be upgraded by asking it
 // to contact the OTA server for the most recent firmware version.
 func (o *OTAUpdater) UpgradeDevice(device *Device) error {
-	log.Debugf(fmt.Sprintf(device.GetBaseURL()+"/ota?url=http://%v:%v/%v", o.serverIP.String(), o.httpPort, device.Model))
-
-	response, err := http.Get(fmt.Sprintf(device.GetBaseURL()+"/ota?url=http://%v:%v/%v", o.serverIP.String(), o.httpPort, device.Model))
+	response, err := http.Get(fmt.Sprintf("%s/ota?url=http://%s:%d/%s", device.GetBaseURL(), o.serverIP.String(), o.httpPort, device.Model))
 	if err != nil {
 		log.Debug(err)
 		return err
