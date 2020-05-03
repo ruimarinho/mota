@@ -21,6 +21,12 @@ Download a [binary release](https://github.com/ruimarinho/shelly-updater/release
 ❯ go install github.com/ruimarinho/shelly-updater
 ```
 
+You can also use Docker (Linux only, as Host mode networking is not available on Windows or macOS):
+
+```
+docker run --rm --net=host ruimarinho/shelly-updater
+```
+
 ## Usage
 
 ```sh
