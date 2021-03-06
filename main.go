@@ -21,6 +21,7 @@ var (
 	verbose     = flag.Bool("verbose", false, "Enable verbose mode.")
 	showVersion = flag.BoolP("version", "v", false, "Show version information")
 	force       = flag.BoolP("force", "f", false, "Force upgrades without asking for confirmation")
+	beta        = flag.Bool("beta", false, "Use beta firmwares if available")
 )
 
 func main() {
@@ -39,7 +40,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	updater, err := NewOTAUpdater(*httpPort, "_http._tcp.", *domain, *waitTime, WithForcedUpgrades(*force))
+	updater, err := NewOTAUpdater(*httpPort, "_http._tcp.", *domain, *waitTime, WithForcedUpgrades(*force), WithBetaVersions(*beta))
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -27,6 +27,7 @@ type OTAUpdater struct {
 	httpPort    int
 	serverIP    net.IP
 	force       bool
+	beta        bool
 }
 
 // OTAUpdaterOption is an option interface for OTAUpdater.
@@ -45,6 +46,14 @@ func WithAPIClient(api *APIClient) OTAUpdaterOption {
 func WithForcedUpgrades(force bool) OTAUpdaterOption {
 	return func(o *OTAUpdater) {
 		o.force = force
+	}
+}
+
+// WithBetaVersions is an OTAUpdater option that enables beta
+// versions, if available.
+func WithBetaVersions(beta bool) OTAUpdaterOption {
+	return func(o *OTAUpdater) {
+		o.beta = beta
 	}
 }
 
@@ -71,7 +80,6 @@ func NewOTAUpdater(httpPort int, service string, domain string, waitTime int, op
 	}
 
 	updater := OTAUpdater{
-		api:         NewAPIClient(),
 		browser:     Browser{domain, service, waitTime},
 		httpPort:    serverPort,
 		downloadDir: filepath.Join(downloadDir, "com.github.ruimarinho.shelly-updater"),
@@ -82,6 +90,8 @@ func NewOTAUpdater(httpPort int, service string, domain string, waitTime int, op
 	for _, option := range options {
 		option(&updater)
 	}
+
+	updater.api = NewAPIClient(WithBetaFirmware(updater.beta))
 
 	return updater, nil
 }
@@ -101,14 +111,19 @@ func (o *OTAUpdater) Start() error {
 		return err
 	}
 
-	firmwares, err := o.api.FetchFirmwares()
+	firmwares, err := o.api.FetchVersions()
 	if err != nil {
 		return err
 	}
 
 	models := make(map[string]bool)
 	for _, device := range devices {
-		o.devices[device.IP.String()].NewFWVersion = firmwares[device.Model].Version
+		newFWVersion, err := o.api.GetVersion(device.Model)
+		if err != nil {
+			return err
+		}
+
+		o.devices[device.IP.String()].NewFWVersion = newFWVersion
 
 		// If a model has already been marked as seen or out-of-date, make sure to respect
 		// the flag independently of what future devices may suggest.
@@ -118,7 +133,7 @@ func (o *OTAUpdater) Start() error {
 
 		// Only set the model flag if a discovered device has an out-of-date firmware,
 		// otherwise its firmware will be downloaded and not used.
-		if o.devices[device.IP.String()].CurrentFWVersion != firmwares[device.Model].Version {
+		if o.devices[device.IP.String()].CurrentFWVersion != newFWVersion {
 			models[device.Model] = true
 		}
 	}
@@ -156,7 +171,7 @@ func (o *OTAUpdater) Start() error {
 // DownloadFirmware returns the final destination of the firmware that
 // it has been requested to download for a particular model.
 func (o *OTAUpdater) DownloadFirmware(model string, firmware Firmware) (string, error) {
-	body, err := o.api.GetFirmware(model)
+	body, err := o.api.FetchFirmware(model)
 	defer body.Close()
 	if err != nil {
 		return "", err
@@ -167,7 +182,17 @@ func (o *OTAUpdater) DownloadFirmware(model string, firmware Firmware) (string, 
 		return "", err
 	}
 
-	filename := strings.Join([]string{strings.Join([]string{model, strings.Replace(firmware.Version, "/", "-", -1)}, "-"), path.Ext(firmware.URL)}, "")
+	newFWVersion, err := o.api.GetVersion(model)
+	if err != nil {
+		return "", err
+	}
+
+	newFWURL, err := o.api.GetURL(model)
+	if err != nil {
+		return "", err
+	}
+
+	filename := strings.Join([]string{strings.Join([]string{model, strings.Replace(newFWVersion, "/", "-", -1)}, "-"), path.Ext(newFWURL)}, "")
 	out, err := os.Create(filepath.Join(o.downloadDir, filename))
 	if err != nil {
 		return "", err
@@ -179,7 +204,7 @@ func (o *OTAUpdater) DownloadFirmware(model string, firmware Firmware) (string, 
 		return "", err
 	}
 
-	log.Debugf("Downloaded firmware %v to %v\n", path.Base(firmware.URL), filepath.Join(o.downloadDir, filename))
+	log.Debugf("Downloaded firmware %v to %v\n", path.Base(newFWURL), filepath.Join(o.downloadDir, filename))
 
 	return filepath.Join(o.downloadDir, filename), nil
 }

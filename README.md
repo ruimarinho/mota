@@ -52,6 +52,7 @@ Sometimes Shellies appear to ignore OTA requests and may require multiple attemp
 ❯ shelly-updater -help
 
 Usage of /shelly-updater:
+      --beta            Use beta firmwares if available
       --domain string   Set the search domain for the local network. (default "local")
   -f, --force           Force upgrades without asking for confirmation
   -p, --http-port int   HTTP port to listen for OTA requests. If not specified, a random port is chosen.
