@@ -210,7 +210,7 @@ func (o *OTAUpdater) UpgradeDevice(device *Device) error {
 
 	defer response.Body.Close()
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	return nil
 }
