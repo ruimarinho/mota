@@ -59,7 +59,7 @@ Usage of /shelly-updater:
   -version
     	Show version information
   -wait int
-    	Duration in [s] to run discovery. (default 30)
+      Duration in [s] to run discovery. (default 60)
 ```
 
 ## License
