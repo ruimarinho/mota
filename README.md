@@ -52,16 +52,12 @@ Sometimes Shellies appear to ignore OTA requests and may require multiple attemp
 ❯ shelly-updater -help
 
 Usage of /shelly-updater:
-  -domain string
-    	Set the search domain for the local network. (default "local")
-  -http-port int
-    	HTTP port to listen for OTA requests. If not specified, a random port is chosen.
-  -verbose
-    	Enable verbose mode.
-  -version
-    	Show version information
-  -wait int
-      Duration in [s] to run discovery. (default 60)
+      --domain string   Set the search domain for the local network. (default "local")
+  -f, --force           Force upgrades without asking for confirmation
+  -p, --http-port int   HTTP port to listen for OTA requests. If not specified, a random port is chosen.
+      --verbose         Enable verbose mode.
+  -v, --version         Show version information
+  -w, --wait int        Duration in [s] to run discovery. (default 60)
 ```
 
 ### Authentication
