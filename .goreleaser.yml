@@ -9,6 +9,20 @@ archives:
       - goos: windows
         format: zip
 
+brews:
+  - tap:
+      owner: ruimarinho
+      name: homebrew-tap
+    homepage: "https://github.com/ruimarinho/shelly-updater"
+    commit_author:
+      name: goreleaserbot
+      email: ruipmarinho+goreleaserbot@gmail.com
+    folder: Formula
+    description: "A Shelly device firmware updater based on zeroconf (or bonjour) discovery for local networks using their built-in Over-The-Air update interface. It is suited for network setups where IoT devices do not have internet connectivity."
+    license: "MIT"
+    test: |
+      system "#{bin}/shelly-updater --version"
+
 build:
   binary: shelly-updater
   env:
