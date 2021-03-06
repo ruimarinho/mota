@@ -2,7 +2,7 @@
 
 ![build status](https://github.com/ruimarinho/shelly-updater/workflows/Tests/badge.svg?branch=master)
 
-`shelly-updater` is a [Shelly](https://shelly.cloud) device firmware updater based on zeroconf (or bonjour) discovery for local networks using their built-in Over-The-Air update interface. It is suited for network setups where IoT devices do not have internet connectivity.
+`shelly-updater` is a [Shelly](https://shelly.cloud) device firmware updater based on zeroconf (or bonjour) discovery for local networks using the built-in Over-The-Air (OTA) update interface. It is suited for network setups where IoT devices do not have internet connectivity.
 
 ## Background
 
@@ -25,6 +25,15 @@ You can also use Docker (Linux only, as Host mode networking is not available on
 
 ```
 docker run --rm --net=host ruimarinho/shelly-updater
+```
+
+### macOS
+
+Using Homebrew:
+
+```
+brew tap ruimarinho/tap
+brew install shelly-updater
 ```
 
 ## Usage
