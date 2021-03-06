@@ -1,11 +1,11 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 
 	log "github.com/sirupsen/logrus"
+	flag "github.com/spf13/pflag"
 )
 
 var (
@@ -16,10 +16,11 @@ var (
 
 var (
 	domain      = flag.String("domain", "local", "Set the search domain for the local network.")
-	waitTime    = flag.Int("wait", 60, "Duration in [s] to run discovery.")
-	httpPort    = flag.Int("http-port", 0, "HTTP port to listen for OTA requests. If not specified, a random port is chosen.")
+	waitTime    = flag.IntP("wait", "w", 60, "Duration in [s] to run discovery.")
+	httpPort    = flag.IntP("http-port", "p", 0, "HTTP port to listen for OTA requests. If not specified, a random port is chosen.")
 	verbose     = flag.Bool("verbose", false, "Enable verbose mode.")
-	showVersion = flag.Bool("version", false, "Show version information")
+	showVersion = flag.BoolP("version", "v", false, "Show version information")
+	force       = flag.BoolP("force", "f", false, "Force upgrades without asking for confirmation")
 )
 
 func main() {
@@ -38,7 +39,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	updater, err := NewOTAUpdater(*httpPort, "_http._tcp.", *domain, *waitTime)
+	updater, err := NewOTAUpdater(*httpPort, "_http._tcp.", *domain, *waitTime, WithForcedUpgrades(*force))
 	if err != nil {
 		log.Fatal(err)
 	}

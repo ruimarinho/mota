@@ -26,6 +26,7 @@ type OTAUpdater struct {
 	downloadDir string
 	httpPort    int
 	serverIP    net.IP
+	force       bool
 }
 
 // OTAUpdaterOption is an option interface for OTAUpdater.
@@ -33,9 +34,17 @@ type OTAUpdaterOption func(*OTAUpdater)
 
 // WithAPIClient is an OTAUpdater option that allows overriding the
 // APIClient used to interact with the Shelly API.
-func WithAPIClient(api *APIClient) func(*OTAUpdater) {
+func WithAPIClient(api *APIClient) OTAUpdaterOption {
 	return func(o *OTAUpdater) {
 		o.api = api
+	}
+}
+
+// WithForcedUpgrades is an OTAUpdater option that allows overriding
+// the default behaviour of confirming upgrades interactively.
+func WithForcedUpgrades(force bool) OTAUpdaterOption {
+	return func(o *OTAUpdater) {
+		o.force = force
 	}
 }
 
@@ -70,8 +79,8 @@ func NewOTAUpdater(httpPort int, service string, domain string, waitTime int, op
 	}
 
 	// Apply custom OTAUpdaterOptions.
-	for i := range options {
-		options[i](&updater)
+	for _, option := range options {
+		option(&updater)
 	}
 
 	return updater, nil
@@ -230,19 +239,22 @@ func (o *OTAUpdater) PromptForUpgrade() error {
 		}
 
 		upgrade := false
-		prompt := &survey.Confirm{
-			Message: fmt.Sprintf("Would you like to upgrade %v (%v) from %v to %v?", device.ModelName(), device.IP, device.CurrentFWVersion, device.NewFWVersion),
-		}
 
-		err := survey.AskOne(prompt, &upgrade)
-		if err == terminal.InterruptErr {
-			break
-		} else if err != nil {
-			return err
-		}
+		if !o.force {
+			prompt := &survey.Confirm{
+				Message: fmt.Sprintf("Would you like to upgrade %v (%v) from %v to %v?", device.ModelName(), device.IP, device.CurrentFWVersion, device.NewFWVersion),
+			}
 
-		if !upgrade {
-			continue
+			err := survey.AskOne(prompt, &upgrade)
+			if err == terminal.InterruptErr {
+				break
+			} else if err != nil {
+				return err
+			}
+
+			if !upgrade {
+				continue
+			}
 		}
 
 		o.UpgradeDevice(device)
