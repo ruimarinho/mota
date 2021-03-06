@@ -64,6 +64,20 @@ Usage of /shelly-updater:
       Duration in [s] to run discovery. (default 60)
 ```
 
+### Authentication
+
+If you have setup web access authentication (you should!), `shelly-updater` can automatically read and parse the standard `~/.netrc` (macOS/Linux) and `%HOME%/_netrc` (Windows) files. Create this file on your home folder and add your Shelly information in the following format:
+
+```
+machine <shellyIP_1>
+login <username_1>
+password <password_1>
+
+machine <shellyIP_2>
+login <username_2>
+password <password_2>
+```
+
 ## License
 
 MIT
