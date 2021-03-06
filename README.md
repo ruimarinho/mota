@@ -2,15 +2,15 @@
 
 ![build status](https://github.com/ruimarinho/shelly-updater/workflows/Tests/badge.svg?branch=master)
 
-`shelly-updater` is a [Shelly](https://shelly.cloud) device firmware updater based on zeroconf (or bonjour) discovery for local networks using the built-in Over-The-Air (OTA) update interface. It is suited for network setups where IoT devices do not have internet connectivity.
+`shelly-updater` is a [Shelly](https://shelly.cloud) device firmware updater based on zeroconf (or bonjour) discovery for local networks using the built-in Over-The-Air (OTA) update interface. It is particularly suited for network setups using VLANs where IoT devices do not have internet connectivity.
 
 ## Background
 
 Shelly devices periodically ping the Shelly Cloud to check for firmware updates, but due to the vulnerable nature of their chipset (typically ESP8266 or ESP32), a multitude of security vulnerabilities exist [<sup>1</sup>](#reference-1) [<sup>2</sup>](#reference-2). Mongoose OS, the IoT framework that powers Shelly devices, is also not free of vulnerabilities [<sup>3</sup>](#reference-3), although at this time they are not as severe as the chipset ones.
 
-Although Alterco Robotics, the makers of Shelly devices, frequently releases updates to their devices (unlike many other vendors), it is still considered best practice to keep your IoT devices away from the internet.
+Although Allterco Robotics, the makers of Shelly devices, frequently releases updates to their devices (unlike many other vendors), it is still considered best practice to keep your IoT devices away from the internet.
 
-If you're planning on isolating your IoT network from the internet, then `shelly-updater` brings you managed updates at the local network level.
+If you're planning on isolating your IoT network from the internet, then `shelly-updater` brings you managed updates at the local network level, in bulk and in an interactive way.
 
 ## Installation
 
@@ -43,6 +43,8 @@ brew install shelly-updater
 ```
 
 If local devices are found and new firmware versions are available for your devices, you will be prompted to interactively choose which devices to update.
+
+Sometimes Shellies appear to ignore OTA requests and may require multiple attempts to finally update to the requested version. At this time, it is my belief this is an issue with the OTA routines on the OS that powers Shellies.
 
 ### CLI
 
