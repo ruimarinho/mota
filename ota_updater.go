@@ -65,7 +65,7 @@ func NewOTAUpdater(httpPort int, service string, domain string, waitTime int, op
 		api:         NewAPIClient(),
 		browser:     Browser{domain, service, waitTime},
 		httpPort:    serverPort,
-		downloadDir: filepath.Join(downloadDir, "io.github.ruimarinho.shelly-updater"),
+		downloadDir: filepath.Join(downloadDir, "com.github.ruimarinho.shelly-updater"),
 		serverIP:    serverIP,
 	}
 
