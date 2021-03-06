@@ -16,7 +16,7 @@ var (
 
 var (
 	domain      = flag.String("domain", "local", "Set the search domain for the local network.")
-	waitTime    = flag.Int("wait", 30, "Duration in [s] to run discovery.")
+	waitTime    = flag.Int("wait", 60, "Duration in [s] to run discovery.")
 	httpPort    = flag.Int("http-port", 0, "HTTP port to listen for OTA requests. If not specified, a random port is chosen.")
 	verbose     = flag.Bool("verbose", false, "Enable verbose mode.")
 	showVersion = flag.Bool("version", false, "Show version information")
