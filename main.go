@@ -15,13 +15,14 @@ var (
 )
 
 var (
-	domain      = flag.String("domain", "local", "Set the search domain for the local network.")
-	waitTime    = flag.IntP("wait", "w", 60, "Duration in [s] to run discovery.")
-	httpPort    = flag.IntP("http-port", "p", 0, "HTTP port to listen for OTA requests. If not specified, a random port is chosen.")
-	verbose     = flag.Bool("verbose", false, "Enable verbose mode.")
-	showVersion = flag.BoolP("version", "v", false, "Show version information")
-	force       = flag.BoolP("force", "f", false, "Force upgrades without asking for confirmation")
 	beta        = flag.Bool("beta", false, "Use beta firmwares if available")
+	domain      = flag.String("domain", "local", "Set the search domain for the local network.")
+	force       = flag.BoolP("force", "f", false, "Force upgrades without asking for confirmation")
+	hosts       = flag.StringSlice("host", []string{}, "Use host address(es) instead of device discovery (can be specified multiple times or comma-separated)")
+	httpPort    = flag.IntP("http-port", "p", 0, "HTTP port to listen for OTA requests. If not specified, a random port is chosen.")
+	showVersion = flag.BoolP("version", "v", false, "Show version information")
+	verbose     = flag.Bool("verbose", false, "Enable verbose mode.")
+	waitTime    = flag.IntP("wait", "w", 60, "Duration in [s] to run discovery.")
 )
 
 func main() {
@@ -40,17 +41,24 @@ func main() {
 		os.Exit(0)
 	}
 
-	updater, err := NewOTAUpdater(*httpPort, "_http._tcp.", *domain, *waitTime, WithForcedUpgrades(*force), WithBetaVersions(*beta))
+	otaUpdater, err := NewOTAUpdater(
+		WithBetaVersions(*beta),
+		WithDomain(*domain),
+		WithForcedUpgrades(*force),
+		WithHosts(*hosts),
+		WithServerPort(*httpPort),
+		WithWaitTimeInSeconds(*waitTime),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = updater.Start()
+	err = otaUpdater.Start()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = updater.PromptForUpgrade()
+	err = otaUpdater.Upgrade()
 	if err != nil {
 		log.Fatal(err)
 	}

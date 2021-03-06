@@ -20,14 +20,18 @@ import (
 // OTAUpdater is the structure that keeps a cache of the discovered
 // devices and allows orchestration of upgrades.
 type OTAUpdater struct {
-	api         *APIClient
-	browser     Browser
-	devices     map[string]*Device
-	downloadDir string
-	httpPort    int
-	serverIP    net.IP
-	force       bool
-	beta        bool
+	api               *APIClient
+	browser           Browser
+	devices           map[string]*Device
+	domain            string
+	downloadDir       string
+	force             bool
+	serverPort        int
+	includeBetas      bool
+	hosts             []string
+	serverIP          net.IP
+	service           string
+	waitTimeInSeconds int
 }
 
 // OTAUpdaterOption is an option interface for OTAUpdater.
@@ -41,6 +45,13 @@ func WithAPIClient(api *APIClient) OTAUpdaterOption {
 	}
 }
 
+// WithWaitTimeInSeconds
+func WithWaitTimeInSeconds(waitTimeInSeconds int) OTAUpdaterOption {
+	return func(o *OTAUpdater) {
+		o.waitTimeInSeconds = waitTimeInSeconds
+	}
+}
+
 // WithForcedUpgrades is an OTAUpdater option that allows overriding
 // the default behaviour of confirming upgrades interactively.
 func WithForcedUpgrades(force bool) OTAUpdaterOption {
@@ -49,29 +60,60 @@ func WithForcedUpgrades(force bool) OTAUpdaterOption {
 	}
 }
 
-// WithBetaVersions is an OTAUpdater option that enables beta
+// WithBeta is an OTAUpdater option that enables beta
 // versions, if available.
 func WithBetaVersions(beta bool) OTAUpdaterOption {
 	return func(o *OTAUpdater) {
-		o.beta = beta
+		o.includeBetas = beta
+	}
+}
+
+// WithService
+func WithService(service string) OTAUpdaterOption {
+	return func(o *OTAUpdater) {
+		o.service = service
+	}
+}
+
+// WithDomain
+func WithDomain(domain string) OTAUpdaterOption {
+	return func(o *OTAUpdater) {
+		o.domain = domain
+	}
+}
+
+// WithServerPort
+func WithServerPort(serverPort int) OTAUpdaterOption {
+	return func(o *OTAUpdater) {
+		o.serverPort = serverPort
+	}
+}
+
+// WithHosts
+func WithHosts(hosts []string) OTAUpdaterOption {
+	return func(o *OTAUpdater) {
+		o.hosts = hosts
 	}
 }
 
 // NewOTAUpdater returns an instance of OTAUpdater with the default
 // options. Firmware downloads are stored on the OS cache or temp
 // directories.
-func NewOTAUpdater(httpPort int, service string, domain string, waitTime int, options ...OTAUpdaterOption) (OTAUpdater, error) {
-	downloadDir, err := os.UserCacheDir()
+func NewOTAUpdater(options ...OTAUpdaterOption) (OTAUpdater, error) {
+	const (
+		defaultDomain            = "local"
+		defaultIncludeBetas      = false
+		defaultServerPort        = 0
+		defaultService           = "_http._tcp."
+		defaultWaitTimeInSeconds = 60
+	)
+
+	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		downloadDir = os.TempDir()
+		cacheDir = os.TempDir()
 	}
 
-	serverIP, err := ServerIP()
-	if err != nil {
-		return OTAUpdater{}, err
-	}
-
-	serverPort := httpPort
+	serverPort := defaultServerPort
 	if serverPort == 0 {
 		serverPort, err = ServerPort()
 		if err != nil {
@@ -79,11 +121,17 @@ func NewOTAUpdater(httpPort int, service string, domain string, waitTime int, op
 		}
 	}
 
+	serverIP, err := ServerIP()
+	if err != nil {
+		return OTAUpdater{}, err
+	}
+
 	updater := OTAUpdater{
-		browser:     Browser{domain, service, waitTime},
-		httpPort:    serverPort,
-		downloadDir: filepath.Join(downloadDir, "com.github.ruimarinho.shelly-updater"),
-		serverIP:    serverIP,
+		api:          NewAPIClient(),
+		downloadDir:  filepath.Join(cacheDir, "com.github.ruimarinho.shelly-updater"),
+		includeBetas: defaultIncludeBetas,
+		serverIP:     serverIP,
+		serverPort:   serverPort,
 	}
 
 	// Apply custom OTAUpdaterOptions.
@@ -91,7 +139,11 @@ func NewOTAUpdater(httpPort int, service string, domain string, waitTime int, op
 		option(&updater)
 	}
 
-	updater.api = NewAPIClient(WithBetaFirmware(updater.beta))
+	updater.browser = Browser{updater.domain, updater.service, updater.waitTimeInSeconds}
+
+	if updater.includeBetas {
+		updater.api.includeBetas = true
+	}
 
 	return updater, nil
 }
@@ -103,8 +155,10 @@ func NewOTAUpdater(httpPort int, service string, domain string, waitTime int, op
 // a handler on the local OTA server to serve it when requested by the
 // device OTA service.
 func (o *OTAUpdater) Start() error {
-	log.Debugf("Listening for HTTP server on port %v", o.httpPort)
-	go http.ListenAndServe(fmt.Sprintf(":%v", o.httpPort), nil)
+	log.Infof("Listening for HTTP server on port %v", o.serverPort)
+	mux := http.NewServeMux()
+	server := &http.Server{Addr: fmt.Sprintf(":%v", o.serverPort), Handler: mux}
+	go server.ListenAndServe()
 
 	devices, err := o.Devices()
 	if err != nil {
@@ -157,7 +211,7 @@ func (o *OTAUpdater) Start() error {
 
 			log.Debugf("Adding HTTP handler for /%v", model)
 
-			http.HandleFunc("/"+model, func(w http.ResponseWriter, r *http.Request) {
+			mux.HandleFunc("/"+model, func(w http.ResponseWriter, r *http.Request) {
 				log.Debugf("Serving file %v to %v", filename, r.RemoteAddr)
 				http.ServeFile(w, r, filename)
 			})
@@ -216,7 +270,7 @@ func (o *OTAUpdater) Devices() (map[string]*Device, error) {
 		return o.devices, nil
 	}
 
-	devices, err := o.browser.DiscoverDevices()
+	devices, err := o.browser.DiscoverDevices(o.hosts)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +286,7 @@ func (o *OTAUpdater) Devices() (map[string]*Device, error) {
 // UpgradeDevice requests a device to be upgraded by asking it
 // to contact the OTA server for the most recent firmware version.
 func (o *OTAUpdater) UpgradeDevice(device *Device) error {
-	url := fmt.Sprintf("%s/ota?url=http://%s:%d/%s", device.GetBaseURL(), o.serverIP.String(), o.httpPort, device.Model)
+	url := fmt.Sprintf("%s/ota?url=http://%s:%d/%s", device.GetBaseURL(), o.serverIP.String(), o.serverPort, device.Model)
 
 	log.Debugf("Making OTA request to %s", url)
 
@@ -249,12 +303,12 @@ func (o *OTAUpdater) UpgradeDevice(device *Device) error {
 	return nil
 }
 
-// PromptForUpgrade prompts the end-user to decide whether or not to
+// Upgrade prompts the end-user to decide whether or not to
 // perform an upgrade of a device.
-func (o *OTAUpdater) PromptForUpgrade() error {
+func (o *OTAUpdater) Upgrade() error {
 	devices, err := o.Devices()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	for _, device := range devices {

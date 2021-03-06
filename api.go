@@ -20,10 +20,10 @@ type Firmware struct {
 // APIClient is a struct that represents an API client that fetches
 // information from the Shelly Cloud APIs.
 type APIClient struct {
-	baseURL    string
-	betas      bool
-	firmwares  map[string]Firmware
-	httpClient *http.Client
+	baseURL      string
+	includeBetas bool
+	firmwares    map[string]Firmware
+	httpClient   *http.Client
 }
 
 type response struct {
@@ -50,11 +50,11 @@ func WithBaseURL(baseURL string) APIClientOption {
 	}
 }
 
-// WithBetaFirmware is an APIClient option that enables beta version
-// support
-func WithBetaFirmware(betas bool) APIClientOption {
+// WithBetaFirmware is an APIClient option that enables beta firmware
+// support when available
+func WithBetaFirmware(includeBetas bool) APIClientOption {
 	return func(client *APIClient) {
-		client.betas = betas
+		client.includeBetas = includeBetas
 	}
 }
 
@@ -91,7 +91,9 @@ func (client *APIClient) FetchVersions() (map[string]Firmware, error) {
 		return nil, err
 	}
 
-	return decoded.Data, nil
+	client.firmwares = decoded.Data
+
+	return client.firmwares, nil
 }
 
 // FetchFirmware returns the binary data of a remote firmware for
@@ -110,7 +112,7 @@ func (client *APIClient) FetchFirmware(model string) (io.ReadCloser, error) {
 	return response.Body, nil
 }
 
-// GetVersion
+// GetVersion returns the most recent firmware version available for a model
 func (client *APIClient) GetVersion(model string) (string, error) {
 	firmwares, err := client.FetchVersions()
 	if err != nil {
@@ -119,14 +121,14 @@ func (client *APIClient) GetVersion(model string) (string, error) {
 
 	version := firmwares[model].Version
 
-	if client.betas && firmwares[model].BetaVersion != "" {
+	if client.includeBetas && firmwares[model].BetaVersion != "" {
 		version = firmwares[model].BetaVersion
 	}
 
 	return version, nil
 }
 
-// GetURL
+// GetURL returns the most recent firmware download URL available for a model
 func (client *APIClient) GetURL(model string) (string, error) {
 	firmwares, err := client.FetchVersions()
 	if err != nil {
@@ -135,7 +137,7 @@ func (client *APIClient) GetURL(model string) (string, error) {
 
 	version := firmwares[model].URL
 
-	if client.betas && firmwares[model].BetaURL != "" {
+	if client.includeBetas && firmwares[model].BetaURL != "" {
 		version = firmwares[model].BetaURL
 	}
 
