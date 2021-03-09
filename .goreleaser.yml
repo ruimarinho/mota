@@ -13,7 +13,7 @@ brews:
   - tap:
       owner: ruimarinho
       name: homebrew-tap
-    homepage: "https://github.com/ruimarinho/shelly-updater"
+    homepage: "https://github.com/ruimarinho/mota"
     commit_author:
       name: goreleaserbot
       email: ruipmarinho+goreleaserbot@gmail.com
@@ -21,10 +21,10 @@ brews:
     description: "A Shelly device firmware updater based on zeroconf (or bonjour) discovery for local networks using their built-in Over-The-Air update interface. It is suited for network setups where IoT devices do not have internet connectivity."
     license: "MIT"
     test: |
-      system "#{bin}/shelly-updater --version"
+      system "#{bin}/mota --version"
 
 build:
-  binary: shelly-updater
+  binary: mota
   env:
     - CGO_ENABLED=0
   goos:
@@ -37,5 +37,5 @@ build:
 
 dockers:
  - image_templates:
-    - "ruimarinho/shelly-updater:latest"
-    - "ruimarinho/shelly-updater:{{ .Version }}"
+    - "ruimarinho/mota:latest"
+    - "ruimarinho/mota:{{ .Version }}"

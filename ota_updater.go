@@ -128,7 +128,7 @@ func NewOTAUpdater(options ...OTAUpdaterOption) (OTAUpdater, error) {
 
 	updater := OTAUpdater{
 		api:          NewAPIClient(),
-		downloadDir:  filepath.Join(cacheDir, "com.github.ruimarinho.shelly-updater"),
+		downloadDir:  filepath.Join(cacheDir, "com.github.ruimarinho.mota"),
 		includeBetas: defaultIncludeBetas,
 		serverIP:     serverIP,
 		serverPort:   serverPort,

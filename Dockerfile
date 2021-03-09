@@ -1,3 +1,3 @@
 FROM scratch
-COPY shelly-updater /
-ENTRYPOINT ["/shelly-updater"]
+COPY mota /
+ENTRYPOINT ["/mota"]

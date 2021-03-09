@@ -1,4 +1,4 @@
-module github.com/ruimarinho/go-shelly-updater
+module github.com/ruimarinho/mota
 
 go 1.13
 

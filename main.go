@@ -18,7 +18,7 @@ var (
 	beta        = flag.Bool("beta", false, "Use beta firmwares if available")
 	domain      = flag.String("domain", "local", "Set the search domain for the local network.")
 	force       = flag.BoolP("force", "f", false, "Force upgrades without asking for confirmation")
-	hosts       = flag.StringSlice("host", []string{}, "Use host address(es) instead of device discovery (can be specified multiple times or comma-separated)")
+	hosts       = flag.StringSlice("host", []string{}, "Use host/IP address(es) instead of device discovery (can be specified multiple times or be comma-separated)")
 	httpPort    = flag.IntP("http-port", "p", 0, "HTTP port to listen for OTA requests. If not specified, a random port is chosen.")
 	showVersion = flag.BoolP("version", "v", false, "Show version information")
 	verbose     = flag.Bool("verbose", false, "Enable verbose mode.")
@@ -37,7 +37,7 @@ func main() {
 	}
 
 	if *showVersion {
-		fmt.Printf("shelly-updater %s (%s %s)\n", version, commit, date)
+		fmt.Printf("mota %s (%s %s)\n", version, commit, date)
 		os.Exit(0)
 	}
 
