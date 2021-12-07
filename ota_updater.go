@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -295,6 +296,14 @@ func (o *OTAUpdater) UpgradeDevice(device *Device) error {
 		log.Debug(err)
 		return err
 	}
+
+	responseData, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	log.Debugf("Received OTA response: %s", string(responseData))
 
 	defer response.Body.Close()
 
