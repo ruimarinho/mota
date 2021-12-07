@@ -33,9 +33,18 @@ build:
     - windows
   goarch:
     - amd64
+    - arm64
+  ignore:
+    - goos: windows
+      goarch: arm64
+    - goos: linux
+      goarch: arm64
   main: .
 
 dockers:
  - image_templates:
     - "ruimarinho/mota:latest"
     - "ruimarinho/mota:{{ .Version }}"
+
+universal_binaries:
+  - replace: true
