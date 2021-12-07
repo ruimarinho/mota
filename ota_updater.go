@@ -181,7 +181,7 @@ func (o *OTAUpdater) Start() error {
 
 		// If a model has already been marked as seen or out-of-date, make sure to respect
 		// the flag independently of what future devices may suggest.
-		if models[device.Model] == true {
+		if models[device.Model] {
 			continue
 		}
 
