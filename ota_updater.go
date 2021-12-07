@@ -226,10 +226,11 @@ func (o *OTAUpdater) Start() error {
 // it has been requested to download for a particular model.
 func (o *OTAUpdater) DownloadFirmware(model string, firmware Firmware) (string, error) {
 	body, err := o.api.FetchFirmware(model)
-	defer body.Close()
 	if err != nil {
 		return "", err
 	}
+
+	defer body.Close()
 
 	err = os.MkdirAll(o.downloadDir, 0700)
 	if err != nil {
