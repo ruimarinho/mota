@@ -104,7 +104,6 @@ func NewOTAUpdater(options ...OTAUpdaterOption) (OTAUpdater, error) {
 	const (
 		defaultDomain            = "local"
 		defaultIncludeBetas      = false
-		defaultServerPort        = 0
 		defaultService           = "_http._tcp."
 		defaultWaitTimeInSeconds = 60
 	)
@@ -112,14 +111,6 @@ func NewOTAUpdater(options ...OTAUpdaterOption) (OTAUpdater, error) {
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
 		cacheDir = os.TempDir()
-	}
-
-	serverPort := defaultServerPort
-	if serverPort == 0 {
-		serverPort, err = ServerPort()
-		if err != nil {
-			return OTAUpdater{}, err
-		}
 	}
 
 	serverIP, err := ServerIP()
@@ -132,12 +123,20 @@ func NewOTAUpdater(options ...OTAUpdaterOption) (OTAUpdater, error) {
 		downloadDir:  filepath.Join(cacheDir, "com.github.ruimarinho.mota"),
 		includeBetas: defaultIncludeBetas,
 		serverIP:     serverIP,
-		serverPort:   serverPort,
 	}
 
 	// Apply custom OTAUpdaterOptions.
 	for _, option := range options {
 		option(&updater)
+	}
+
+	if updater.serverPort == 0 {
+		serverPort, err := ServerPort()
+		updater.serverPort = serverPort
+
+		if err != nil {
+			return OTAUpdater{}, err
+		}
 	}
 
 	updater.browser = Browser{updater.domain, updater.service, updater.waitTimeInSeconds}
