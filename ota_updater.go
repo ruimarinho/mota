@@ -15,6 +15,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
+	"github.com/davecgh/go-spew/spew"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -148,49 +149,54 @@ func NewOTAUpdater(options ...OTAUpdaterOption) (OTAUpdater, error) {
 	return updater, nil
 }
 
-// Start is the main orchestrator of device updates. First, it
+// Setup is the main orchestrator of device updates. First, it
 // discovers them and then, for each model found, it fetches the
 // most recent firmware available. If there are any devices of that
 // model available for update, it downloads that firmware and installs
 // a handler on the local OTA server to serve it when requested by the
 // device OTA service.
-func (o *OTAUpdater) Start() error {
-	log.Infof("Listening for HTTP server on port %v", o.serverPort)
-	mux := http.NewServeMux()
-	server := &http.Server{Addr: fmt.Sprintf(":%v", o.serverPort), Handler: mux}
-	go server.ListenAndServe()
-
+func (o *OTAUpdater) Setup() (sync.Map, error) {
 	devices, err := o.Devices()
 	if err != nil {
-		return err
+		return sync.Map{}, err
 	}
 
 	firmwares, err := o.api.FetchVersions()
 	if err != nil {
-		return err
+		return sync.Map{}, err
 	}
 
 	models := make(map[string]bool)
 	for _, device := range devices {
-		newFWVersion, err := o.api.GetVersion(device.Model)
+		var model string
+		// Gen2
+		if device.App != "" {
+			model = device.App
+		} else {
+			model = device.Model
+		}
+
+		newFWVersion, err := o.api.GetVersion(model)
 		if err != nil {
-			return err
+			return sync.Map{}, err
 		}
 
 		o.devices[device.IP.String()].NewFWVersion = newFWVersion
 
 		// If a model has already been marked as seen or out-of-date, make sure to respect
 		// the flag independently of what future devices may suggest.
-		if models[device.Model] {
+		if models[model] {
 			continue
 		}
 
 		// Only set the model flag if a discovered device has an out-of-date firmware,
 		// otherwise its firmware will be downloaded and not used.
 		if o.devices[device.IP.String()].CurrentFWVersion != newFWVersion {
-			models[device.Model] = true
+			models[model] = true
 		}
 	}
+
+	var downloadedFirmwares = sync.Map{}
 
 	var wg sync.WaitGroup
 	for model, firmware := range firmwares {
@@ -209,17 +215,12 @@ func (o *OTAUpdater) Start() error {
 				return
 			}
 
-			log.Debugf("Adding HTTP handler for /%v", model)
-
-			mux.HandleFunc("/"+model, func(w http.ResponseWriter, r *http.Request) {
-				log.Debugf("Serving file %v to %v", filename, r.RemoteAddr)
-				http.ServeFile(w, r, filename)
-			})
+			downloadedFirmwares.Store(model, filename)
 		}(model, firmware)
 	}
 	wg.Wait()
 
-	return nil
+	return downloadedFirmwares, nil
 }
 
 // DownloadFirmware returns the final destination of the firmware that
@@ -286,8 +287,22 @@ func (o *OTAUpdater) Devices() (map[string]*Device, error) {
 
 // UpgradeDevice requests a device to be upgraded by asking it
 // to contact the OTA server for the most recent firmware version.
-func (o *OTAUpdater) UpgradeDevice(device *Device) error {
-	url := fmt.Sprintf("%s/ota?url=http://%s:%d/%s", device.GetBaseURL(), o.serverIP.String(), o.serverPort, device.Model)
+func (o *OTAUpdater) UpgradeDevice(device *Device, mux *http.ServeMux, filename string, wg *sync.WaitGroup) error {
+	url := fmt.Sprintf("%s/ota?url=http://%s:%d/%s-%s", device.GetBaseURL(), o.serverIP.String(), o.serverPort, device.Model, device.Mac)
+
+	log.Debugf("Adding HTTP handler for /%s-%s", device.Model, device.Mac)
+
+	doneCh := make(chan bool)
+	mux.HandleFunc(fmt.Sprintf("/%s-%s", device.Model, device.Mac), func(w http.ResponseWriter, r *http.Request) {
+		notifier := r.Context().Done()
+
+		log.Debugf("Serving file %v to %v", filename, r.RemoteAddr)
+		http.ServeFile(w, r, filename)
+		<-notifier
+		doneCh <- true
+
+		log.Debugf("Served file %v to %v", filename, r.RemoteAddr)
+	})
 
 	log.Debugf("Making OTA request to %s", url)
 
@@ -297,6 +312,7 @@ func (o *OTAUpdater) UpgradeDevice(device *Device) error {
 		return err
 	}
 
+	defer response.Body.Close()
 	responseData, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		log.Error(err)
@@ -305,20 +321,33 @@ func (o *OTAUpdater) UpgradeDevice(device *Device) error {
 
 	log.Debugf("Received OTA response: %s", string(responseData))
 
-	defer response.Body.Close()
+	select {
+	case <-doneCh:
+		log.Debugf("Completed OTA request")
+	case <-time.After(time.Second * 60):
+		log.Warn("Client did not complete OTA request under 30 seconds")
+	}
 
-	time.Sleep(10 * time.Second)
+	spew.Dump("Done! heeeeeeeeeeeeee")
+	wg.Done()
 
 	return nil
 }
 
-// Upgrade prompts the end-user to decide whether or not to
+// PromptForUpgrades prompts the end-user to decide whether or not to
 // perform an upgrade of a device.
-func (o *OTAUpdater) Upgrade() error {
+func (o *OTAUpdater) PromptForUpgrades(downloadedFirmwares sync.Map) error {
 	devices, err := o.Devices()
 	if err != nil {
 		return err
 	}
+
+	log.Infof("Listening for HTTP server on port %v", o.serverPort)
+	mux := http.NewServeMux()
+	server := &http.Server{Addr: fmt.Sprintf(":%v", o.serverPort), Handler: mux}
+	go server.ListenAndServe()
+
+	var wg sync.WaitGroup
 
 	for _, device := range devices {
 		if device.CurrentFWVersion == device.NewFWVersion {
@@ -345,8 +374,22 @@ func (o *OTAUpdater) Upgrade() error {
 			}
 		}
 
-		o.UpgradeDevice(device)
+		var model string
+		if device.Generation == 1 {
+			model = device.Model
+		} else {
+			model = device.App
+		}
+		firmware, found := downloadedFirmwares.Load(model)
+		spew.Dump(downloadedFirmwares)
+		if !found {
+			return fmt.Errorf("error downloading firmware")
+		}
+
+		wg.Add(1)
+		go o.UpgradeDevice(device, mux, firmware.(string), &wg)
 	}
+	wg.Wait()
 
 	return nil
 }

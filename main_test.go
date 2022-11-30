@@ -60,7 +60,7 @@ func TestNonUpgradable(t *testing.T) {
 	)
 	assert.Nil(t, err)
 
-	err = otaUpdater.Start()
+	err = otaUpdater.Setup()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestUpgradable(t *testing.T) {
 	)
 	assert.Nil(t, err)
 
-	err = otaUpdater.Start()
+	err = otaUpdater.Setup()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -198,7 +198,7 @@ func TestUpgradableBeta(t *testing.T) {
 	)
 	assert.Nil(t, err)
 
-	err = otaUpdater.Start()
+	err = otaUpdater.Setup()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -263,7 +263,7 @@ func TestHosts(t *testing.T) {
 	)
 	assert.Nil(t, err)
 
-	err = otaUpdater.Start()
+	err = otaUpdater.Setup()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -328,7 +328,7 @@ func TestMalformedHosts(t *testing.T) {
 	)
 	assert.Nil(t, err)
 
-	err = otaUpdater.Start()
+	err = otaUpdater.Setup()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -386,7 +386,7 @@ func TestMalformedHostPort(t *testing.T) {
 	)
 	assert.Nil(t, err)
 
-	err = otaUpdater.Start()
+	err = otaUpdater.Setup()
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -1,19 +1,62 @@
 package main
 
-import "net"
+import (
+	"errors"
+	"net"
+)
 
-// ServerIP attempts to get the local device IP to
-// expose as the OTA server.
+// LocalIP get the host machine local IP address
 func ServerIP() (net.IP, error) {
-	conn, err := net.Dial("udp", "8.8.8.8:53")
+	ifaces, err := net.Interfaces()
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	for _, i := range ifaces {
+		addrs, err := i.Addrs()
+		if err != nil {
+			return nil, err
+		}
 
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
 
-	return localAddr.IP, nil
+			if isPrivateIP(ip) {
+				return ip, nil
+			}
+		}
+	}
+
+	return nil, errors.New("no IP")
+}
+
+func isPrivateIP(ip net.IP) bool {
+	var privateIPBlocks []*net.IPNet
+	for _, cidr := range []string{
+		// don't check loopback ips
+		//"127.0.0.0/8",    // IPv4 loopback
+		//"::1/128",        // IPv6 loopback
+		//"fe80::/10",      // IPv6 link-local
+		"10.0.0.0/8",     // RFC1918
+		"172.16.0.0/12",  // RFC1918
+		"192.168.0.0/16", // RFC1918
+	} {
+		_, block, _ := net.ParseCIDR(cidr)
+		privateIPBlocks = append(privateIPBlocks, block)
+	}
+
+	for _, block := range privateIPBlocks {
+		if block.Contains(ip) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // ServerPort attempts to retrieve a free open port.

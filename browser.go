@@ -122,6 +122,11 @@ func (b *Browser) fetchSettings(foundDevicesChan chan Device, fetchedDevicesChan
 	if err == nil {
 		netrcFile, err = netrc.Parse(netrcPath)
 	}
+
+	if err != nil {
+		log.Errorf("Netrc appears to be malformed")
+	}
+
 	for device := range foundDevicesChan {
 		done.Add(1)
 		go func(device Device, fetchedDevicesChan chan Device) {
@@ -139,7 +144,14 @@ func (b *Browser) fetchSettings(foundDevicesChan chan Device, fetchedDevicesChan
 				Timeout: 5 * time.Second,
 			}
 
-			response, err := client.Get(device.GetBaseURL() + "/settings")
+			var path string
+			if device.Generation == 1 {
+				path = "/settings"
+			} else {
+				path = "/rpc/Shelly.GetDeviceInfo"
+			}
+
+			response, err := client.Get(device.GetBaseURL() + path)
 			if err != nil {
 				log.Debug(err)
 				return
@@ -152,16 +164,33 @@ func (b *Browser) fetchSettings(foundDevicesChan chan Device, fetchedDevicesChan
 				return
 			}
 
-			var settings Settings
-			err = json.NewDecoder(response.Body).Decode(&settings)
-			if err != nil {
-				fmt.Println("Error parsing JSON: ", err)
-				return
-			}
+			if device.Generation == 1 {
+				var settings Settings
+				err = json.NewDecoder(response.Body).Decode(&settings)
+				if err != nil {
+					fmt.Println("Error parsing JSON: ", err)
+					return
+				}
 
-			// Update the device's model type (e.g. SHSW-25) and current firmware.
-			device.Model = settings.Device.Type
-			device.CurrentFWVersion = settings.FW
+				// Update the device's model type (e.g. SHSW-25) and current firmware.
+				device.Model = settings.Device.Type
+				device.CurrentFWVersion = settings.FW
+				device.Mac = settings.Device.Mac
+
+			} else {
+				var settings SettingsGen2
+				err = json.NewDecoder(response.Body).Decode(&settings)
+				if err != nil {
+					fmt.Println("Error parsing JSON: ", err)
+					return
+				}
+
+				// Update the device's model type (e.g. Plus2PM) and current firmware.
+				device.Model = settings.Model
+				device.App = settings.App
+				device.CurrentFWVersion = settings.FW
+				device.Mac = settings.Mac
+			}
 
 			log.Debugf("Parsed settings from device %v", device.String())
 
@@ -179,12 +208,17 @@ func (b *Browser) fetchSettings(foundDevicesChan chan Device, fetchedDevicesChan
 func (b *Browser) filterShellies(entriesChan <-chan *zeroconf.ServiceEntry, devicesChan chan Device) {
 	for entry := range entriesChan {
 		for _, str := range entry.Text {
-			if strings.HasPrefix(str, "id=shelly") {
+			generation := 1
+			if strings.HasPrefix(str, "gen=2") {
+				generation = 2
+			}
+
+			if strings.HasPrefix(str, "id=shelly") || strings.HasPrefix(str, "gen=2") {
 				IP := entry.AddrIPv4[0]
 
 				log.Infof("Found device %v (%v)", entry.HostName, IP.String())
 
-				devicesChan <- Device{IP: IP, HostName: entry.HostName, Port: entry.Port}
+				devicesChan <- Device{IP: IP, HostName: entry.HostName, Port: entry.Port, Generation: generation}
 				break
 			}
 		}

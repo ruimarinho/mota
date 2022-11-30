@@ -53,12 +53,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = otaUpdater.Start()
+	downloadedFirmwares, err := otaUpdater.Setup()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = otaUpdater.Upgrade()
+	err = otaUpdater.PromptForUpgrades(downloadedFirmwares)
 	if err != nil {
 		log.Fatal(err)
 	}
