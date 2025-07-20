@@ -1,0 +1,4 @@
+global:
+  credentials:
+    username: MyUser
+    password: verysecret

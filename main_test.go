@@ -396,6 +396,14 @@ func TestMalformedHostPort(t *testing.T) {
 	assert.Len(t, devices, 0)
 }
 
+func TestLoadUserConfig(t *testing.T) {
+	config, err := LoadUserConfig("tests/assets/mota-user-config.yml")
+	assert.Nil(t, err)
+
+	assert.Equal(t, config.GlobalConfig.DefaultCredentials.Username, "MyUser")
+	assert.Equal(t, config.GlobalConfig.DefaultCredentials.Password, "verysecret")
+}
+
 func mockDeviceSettingsJSON(model string, mac string, version string) string {
 	return fmt.Sprintf(`{
 		"device": {

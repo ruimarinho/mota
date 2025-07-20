@@ -68,6 +68,21 @@ Usage of mota:
 
 ### Authentication
 
+You can either provide global credentials or device based credentials. Device based credentials always take precedence.
+
+#### Global credentials
+
+Create a file in your home folder called `mota.yml` and put this into our file
+
+```yaml
+global:
+  credentials:
+    username: MyName
+    password: verysecret
+```
+
+#### Device based credentials
+
 If you have setup web access authentication (you should!), `mota` can automatically read and parse the standard `~/.netrc` (macOS/Linux) and `%HOME%/_netrc` (Windows) files. Create this file on your home folder and add your Shelly information in the following format:
 
 ```
