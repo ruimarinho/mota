@@ -128,6 +128,22 @@ func (b *Browser) fetchSettings(foundDevicesChan chan Device, fetchedDevicesChan
 			log.Infof("Fetching settings from %v", device.String())
 			defer done.Done()
 
+			// try to load general credentials from the user config if available
+			path, err := UserConfigPath()
+			if err != nil {
+				log.Debug(err)
+			} else {
+				userConfig, err := LoadUserConfig(path)
+				if err != nil {
+					log.Debug(err)
+				}
+				if userConfig != nil {
+					device.Username = userConfig.GlobalConfig.DefaultCredentials.Username
+					device.Password = userConfig.GlobalConfig.DefaultCredentials.Password
+				}
+			}
+
+			// if there is a netrc fle that defines specific credentials, override the globa credentials
 			if netrcFile != nil && netrcFile.Machine(device.IP.String()) != nil {
 				log.Debugf("Found netrc entry for device %v", device.String())
 
