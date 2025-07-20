@@ -72,7 +72,7 @@ You can either provide global credentials or device based credentials. Device ba
 
 #### Global credentials
 
-Create a file in your home folder called `mota.yml` and put this into our file
+Create a file in your home folder called `~/.mota.yml` and put this into our file
 
 ```yaml
 global:
