@@ -1,11 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 
 	log "github.com/sirupsen/logrus"
-	flag "github.com/spf13/pflag"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -14,54 +16,188 @@ var (
 	date    = "unknown"
 )
 
+// Shared flags.
 var (
-	beta        = flag.Bool("beta", false, "Use beta firmwares if available")
-	domain      = flag.String("domain", "local", "Set the search domain for the local network.")
-	force       = flag.BoolP("force", "f", false, "Force upgrades without asking for confirmation")
-	hosts       = flag.StringSlice("host", []string{}, "Use host/IP address(es) instead of device discovery (can be specified multiple times or be comma-separated)")
-	httpPort    = flag.IntP("http-port", "p", 0, "HTTP port to listen for OTA requests. If not specified, a random port is chosen.")
-	showVersion = flag.BoolP("version", "v", false, "Show version information")
-	verbose     = flag.Bool("verbose", false, "Enable verbose mode.")
-	waitTime    = flag.IntP("wait", "w", 60, "Duration in [s] to run discovery.")
+	flagBeta     bool
+	flagDevices  []string
+	flagDomain   string
+	flagExclude  []string
+	flagForce    bool
+	flagHTTPPort int
+	flagJSON     bool
+	flagModel    []string
+	flagSubnets  []string
+	flagVerbose  bool
+	flagWaitTime int
 )
 
-func main() {
-	flag.Parse()
+func newOTAServiceFromFlags() (*OTAService, error) {
+	return NewOTAService(
+		WithBetaVersions(flagBeta),
+		WithDomain(flagDomain),
+		WithExcludeFilter(flagExclude),
+		WithForcedUpgrades(flagForce),
+		WithDevices(flagDevices),
+		WithModelFilter(flagModel),
+		WithServerPort(flagHTTPPort),
+		WithSubnets(flagSubnets),
+		WithWaitTimeInSeconds(flagWaitTime),
+	)
+}
 
-	// Only log the warning severity or above when verbose mode is disabled.
-	if *verbose {
+func configureLogging() {
+	if flagJSON {
+		log.SetOutput(io.Discard)
+	} else if flagVerbose {
 		log.SetFormatter(&log.TextFormatter{DisableColors: true})
 		log.SetLevel(log.DebugLevel)
 	} else {
 		log.SetLevel(log.InfoLevel)
 	}
+}
 
-	if *showVersion {
+func printJSON(v interface{}) error {
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(v)
+}
+
+var rootCmd = &cobra.Command{
+	Use:   "mota",
+	Short: "Shelly firmware updater",
+	Long:  "mota discovers Shelly devices on the local network and upgrades their firmware.",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		configureLogging()
+	},
+	// Running bare `mota` with no subcommand behaves like `mota upgrade`.
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runUpgrade(cmd, args)
+	},
+}
+
+var upgradeCmd = &cobra.Command{
+	Use:   "upgrade",
+	Short: "Discover devices and upgrade firmware",
+	RunE:  runUpgrade,
+}
+
+var listCmd = &cobra.Command{
+	Use:   "list",
+	Short: "Discover devices and list available updates",
+	RunE:  runList,
+}
+
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Show version information",
+	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("mota %s (%s %s)\n", version, commit, date)
-		os.Exit(0)
+	},
+}
+
+func runUpgrade(cmd *cobra.Command, args []string) error {
+	otaUpdater, err := newOTAServiceFromFlags()
+	if err != nil {
+		return err
 	}
 
-	otaUpdater, err := NewOTAUpdater(
-		WithBetaVersions(*beta),
-		WithDomain(*domain),
-		WithForcedUpgrades(*force),
-		WithHosts(*hosts),
-		WithServerPort(*httpPort),
-		WithWaitTimeInSeconds(*waitTime),
-	)
+	err = otaUpdater.Setup()
 	if err != nil {
-		log.Fatal(err)
+		return err
+	}
+	defer otaUpdater.Shutdown()
+
+	otaUpdater.FilterDevices()
+
+	if flagJSON {
+		return printJSON(otaUpdater.ListDeviceStatus())
 	}
 
-	downloadedFirmwares, err := otaUpdater.Setup()
+	err = otaUpdater.PromptForUpgrades()
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = otaUpdater.PromptForUpgrades(downloadedFirmwares)
-	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	log.Infof("Done!")
+	return nil
+}
+
+func runList(cmd *cobra.Command, args []string) error {
+	otaUpdater, err := newOTAServiceFromFlags()
+	if err != nil {
+		return err
+	}
+
+	err = otaUpdater.Setup()
+	if err != nil {
+		return err
+	}
+	defer otaUpdater.Shutdown()
+
+	otaUpdater.FilterDevices()
+
+	statuses := otaUpdater.ListDeviceStatus()
+
+	if flagJSON {
+		return printJSON(statuses)
+	}
+
+	if len(statuses) == 0 {
+		fmt.Println("No devices found.")
+		return nil
+	}
+
+	fmt.Printf("%-40s %-14s %-20s %-20s %s\n", "DEVICE", "MODEL", "CURRENT", "TARGET", "NOTE")
+	fmt.Printf("%-40s %-14s %-20s %-20s %s\n", "------", "-----", "-------", "------", "----")
+
+	for _, s := range statuses {
+		target := s.TargetVersion
+		note := ""
+		if s.UpToDate {
+			target = "(up to date)"
+		}
+		if s.SteppingStone {
+			note = "stepping-stone"
+		}
+		fmt.Printf("%-40s %-14s %-20s %-20s %s\n", s.Name, s.Model, s.CurrentVersion, target, note)
+	}
+
+	return nil
+}
+
+func addSharedFlags(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(&flagBeta, "beta", false, "Include beta firmwares in the list of available updates")
+	cmd.Flags().StringVar(&flagDomain, "domain", "local", "Set the search domain for the local network")
+	cmd.Flags().StringSliceVar(&flagDevices, "device", []string{}, "Use device IP address(es) instead of device discovery (can be specified multiple times or be comma-separated)")
+	cmd.Flags().StringSliceVar(&flagExclude, "exclude", []string{}, "Exclude devices matching glob pattern(s) (can be specified multiple times or be comma-separated)")
+	cmd.Flags().IntVarP(&flagHTTPPort, "http-port", "p", 0, "HTTP port to listen for OTA requests. If not specified, a random port is chosen")
+	cmd.Flags().BoolVar(&flagJSON, "json", false, "Output results as JSON")
+	cmd.Flags().StringSliceVar(&flagModel, "model", []string{}, "Only include devices matching model name(s) (can be specified multiple times or be comma-separated)")
+	cmd.Flags().StringSliceVar(&flagSubnets, "subnet", []string{}, "Additional subnet(s) to scan in CIDR notation (e.g. 192.168.100.0/24)")
+	cmd.Flags().IntVarP(&flagWaitTime, "wait", "w", 60, "Duration in [s] to run discovery")
+}
+
+func init() {
+	rootCmd.PersistentFlags().BoolVar(&flagVerbose, "verbose", false, "Enable verbose mode")
+
+	// Add shared flags to root (for backward compat running bare `mota --flags`).
+	addSharedFlags(rootCmd)
+	rootCmd.Flags().BoolVarP(&flagForce, "force", "f", false, "Force upgrades without asking for confirmation")
+
+	// Add shared flags to upgrade subcommand.
+	addSharedFlags(upgradeCmd)
+	upgradeCmd.Flags().BoolVarP(&flagForce, "force", "f", false, "Force upgrades without asking for confirmation")
+
+	// Add shared flags to list subcommand.
+	addSharedFlags(listCmd)
+
+	rootCmd.AddCommand(upgradeCmd)
+	rootCmd.AddCommand(listCmd)
+	rootCmd.AddCommand(versionCmd)
+}
+
+func main() {
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
