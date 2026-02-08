@@ -235,7 +235,11 @@ func (b *Browser) findShellies(entriesChan <-chan *zeroconf.ServiceEntry, device
 // to find Shelly devices missed by mDNS. Returns fully fetched Device
 // entries, skipping any IPs in the seen map.
 func (b *Browser) scanSubnetForDevices(seen map[string]bool) ([]Device, error) {
-	ips := AllLocalSubnets()
+	ips, localCIDRs := AllLocalSubnets()
+
+	for _, cidr := range localCIDRs {
+		log.Infof("Detected local subnet %s", cidr)
+	}
 
 	// Append IPs from explicitly configured subnets (--subnet flag).
 	for _, cidr := range b.subnets {

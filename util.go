@@ -64,15 +64,17 @@ func isPrivateIP(ip net.IP) bool {
 }
 
 // AllLocalSubnets returns all host IPs across all private /24 subnets
-// found on the machine's network interfaces.
-func AllLocalSubnets() []net.IP {
+// found on the machine's network interfaces, along with the discovered
+// CIDR strings (e.g. "192.168.1.0/24").
+func AllLocalSubnets() ([]net.IP, []string) {
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 
 	seen := make(map[string]bool)
 	var ips []net.IP
+	var cidrs []string
 
 	for _, iface := range ifaces {
 		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
@@ -102,6 +104,8 @@ func AllLocalSubnets() []net.IP {
 			}
 			seen[prefix] = true
 
+			cidrs = append(cidrs, fmt.Sprintf("%s.0/24", prefix))
+
 			for i := 1; i < 255; i++ {
 				candidate := make(net.IP, 4)
 				copy(candidate, ip)
@@ -111,7 +115,7 @@ func AllLocalSubnets() []net.IP {
 		}
 	}
 
-	return ips
+	return ips, cidrs
 }
 
 // ExpandCIDR parses a CIDR string (e.g. "192.168.100.0/24") and returns
