@@ -158,17 +158,10 @@ func incrementIP(ip net.IP) {
 	}
 }
 
-// ServerPort attempts to retrieve a free open port.
-func ServerPort() (int, error) {
-	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
-	if err != nil {
-		return 0, err
-	}
-
-	l, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		return 0, err
-	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port, nil
+// ServerListener opens a TCP listener on the given port (or a random
+// free port when port is 0). The caller is expected to pass the
+// listener directly to http.Server.Serve, which eliminates the
+// TOCTOU race that existed when the port was closed and reopened.
+func ServerListener(port int) (net.Listener, error) {
+	return net.Listen("tcp", fmt.Sprintf(":%d", port))
 }

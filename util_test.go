@@ -7,10 +7,25 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestServerPort(t *testing.T) {
-	port, err := ServerPort()
+func TestServerListener(t *testing.T) {
+	ln, err := ServerListener(0)
 	assert.Nil(t, err)
+	defer ln.Close()
+
+	port := ln.Addr().(*net.TCPAddr).Port
 	assert.Greater(t, port, 0)
+}
+
+func TestServerListenerSpecificPort(t *testing.T) {
+	ln, err := ServerListener(0)
+	assert.Nil(t, err)
+	port := ln.Addr().(*net.TCPAddr).Port
+	ln.Close()
+
+	ln2, err := ServerListener(port)
+	assert.Nil(t, err)
+	defer ln2.Close()
+	assert.Equal(t, port, ln2.Addr().(*net.TCPAddr).Port)
 }
 
 func TestExpandCIDR(t *testing.T) {
