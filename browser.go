@@ -29,6 +29,8 @@ type Browser struct {
 	service  string
 	waitTime int
 	subnets  []string
+	username string
+	password string
 }
 
 type gen2PlusShellyInfoResponse struct {
@@ -314,6 +316,9 @@ func (b *Browser) scanSubnetForDevices(seen map[string]bool) ([]Device, error) {
 			if netrcFile != nil && netrcFile.Machine(host) != nil {
 				username = netrcFile.Machine(host).Get("login")
 				password = url.QueryEscape(netrcFile.Machine(host).Get("password"))
+			} else if b.username != "" || b.password != "" {
+				username = b.username
+				password = url.QueryEscape(b.password)
 			}
 
 			settingsResp, err := settingsClient.Get(da.DeviceInformationURL(username, password))
@@ -397,6 +402,11 @@ func (b *Browser) fetchSettings(foundDevicesChan chan DeviceAnnouncement, fetche
 
 				username = netrcFile.Machine(deviceAnnouncement.IP.String()).Get("login")
 				password = url.QueryEscape(netrcFile.Machine(deviceAnnouncement.IP.String()).Get("password"))
+			} else if b.username != "" || b.password != "" {
+				log.Debugf("Using global credentials for device %v", deviceAnnouncement.String())
+
+				username = b.username
+				password = url.QueryEscape(b.password)
 			}
 
 			client := http.Client{

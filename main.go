@@ -26,7 +26,9 @@ var (
 	flagHTTPPort int
 	flagJSON     bool
 	flagModel    []string
+	flagPassword string
 	flagSubnets  []string
+	flagUsername string
 	flagVerbose  bool
 	flagWaitTime int
 )
@@ -39,8 +41,10 @@ func newOTAServiceFromFlags() (*OTAService, error) {
 		WithForcedUpgrades(flagForce),
 		WithDevices(flagDevices),
 		WithModelFilter(flagModel),
+		WithPassword(flagPassword),
 		WithServerPort(flagHTTPPort),
 		WithSubnets(flagSubnets),
+		WithUsername(flagUsername),
 		WithWaitTimeInSeconds(flagWaitTime),
 	)
 }
@@ -173,7 +177,9 @@ func addSharedFlags(cmd *cobra.Command) {
 	cmd.Flags().IntVarP(&flagHTTPPort, "http-port", "p", 0, "HTTP port to listen for OTA requests. If not specified, a random port is chosen")
 	cmd.Flags().BoolVar(&flagJSON, "json", false, "Output results as JSON")
 	cmd.Flags().StringSliceVar(&flagModel, "model", []string{}, "Only include devices matching model name(s) (can be specified multiple times or be comma-separated)")
+	cmd.Flags().StringVar(&flagPassword, "password", "", "Global password for device authentication (fallback when no .netrc entry exists)")
 	cmd.Flags().StringSliceVar(&flagSubnets, "subnet", []string{}, "Additional subnet(s) to scan in CIDR notation (e.g. 192.168.100.0/24)")
+	cmd.Flags().StringVar(&flagUsername, "username", "", "Global username for device authentication (fallback when no .netrc entry exists)")
 	cmd.Flags().IntVarP(&flagWaitTime, "wait", "w", 60, "Duration in [s] to run discovery")
 }
 
