@@ -90,6 +90,29 @@ var steppingStone133 = map[string]RemoteFirmware{
 
 const steppingStoneVersion = "1.3.3"
 
+// extractSemanticVersion extracts a clean semver (e.g. "1.14.0") from firmware
+// version strings in any format Shelly devices use:
+//   - Gen1:  "20230913-131259/v1.14.0-gcb84623" -> "1.14.0"
+//   - Gen2+: "1.4.4" -> "1.4.4"
+//   - With v prefix: "v1.14.0" -> "1.14.0"
+func extractSemanticVersion(v string) string {
+	// Gen1 format: "date/v<semver>-ghash" or "date/v<semver>@hash"
+	// Take the part after the last '/'.
+	if idx := strings.LastIndex(v, "/"); idx >= 0 {
+		v = v[idx+1:]
+	}
+
+	// Strip leading 'v' prefix.
+	v = strings.TrimPrefix(v, "v")
+
+	// Strip trailing git hash suffix ("-gcb84623" or "@43056d58").
+	if idx := strings.IndexAny(v, "-@"); idx >= 0 {
+		v = v[:idx]
+	}
+
+	return v
+}
+
 // parseVersion parses a semver string "major.minor.patch" into its components.
 func parseVersion(v string) (major, minor, patch int, err error) {
 	parts := strings.Split(v, ".")
@@ -144,7 +167,7 @@ func NeedsSteppingStone(device *Device) (RemoteFirmware, bool) {
 		return RemoteFirmware{}, false
 	}
 
-	if !isVersionLessThan(device.FirmwareVersion, steppingStoneVersion) {
+	if !isVersionLessThan(extractSemanticVersion(device.FirmwareVersion), steppingStoneVersion) {
 		return RemoteFirmware{}, false
 	}
 

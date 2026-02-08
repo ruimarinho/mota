@@ -34,6 +34,7 @@ type OTAService struct {
 	downloadDir       string
 	force             bool
 	serverPort        int
+	listener          net.Listener
 	includeBetas      bool
 	hosts             []string
 	serverIP          net.IP
@@ -45,6 +46,8 @@ type OTAService struct {
 	modelFilter       []string
 	excludePatterns   []string
 	subnets           []string
+	username          string
+	password          string
 }
 
 // OTAServiceOption is an option interface for OTAUpdater.
@@ -109,6 +112,22 @@ func WithDevices(hosts []string) OTAServiceOption {
 	}
 }
 
+// WithUsername is an OTAServiceOption that sets a global username
+// used as fallback when no .netrc entry exists for a device.
+func WithUsername(username string) OTAServiceOption {
+	return func(o *OTAService) {
+		o.username = username
+	}
+}
+
+// WithPassword is an OTAServiceOption that sets a global password
+// used as fallback when no .netrc entry exists for a device.
+func WithPassword(password string) OTAServiceOption {
+	return func(o *OTAService) {
+		o.password = password
+	}
+}
+
 // NewOTAService returns an instance of OTAUpdater with the default
 // options. Firmware downloads are stored on the OS cache or temp
 // directories.
@@ -138,20 +157,20 @@ func NewOTAService(options ...OTAServiceOption) (*OTAService, error) {
 		option(otaService)
 	}
 
-	if otaService.serverPort == 0 {
-		serverPort, err := ServerPort()
-		otaService.serverPort = serverPort
-
-		if err != nil {
-			return nil, err
-		}
+	listener, err := ServerListener(otaService.serverPort)
+	if err != nil {
+		return nil, err
 	}
+	otaService.listener = listener
+	otaService.serverPort = listener.Addr().(*net.TCPAddr).Port
 
 	otaService.browser = Browser{
 		domain:   otaService.domain,
 		service:  otaService.service,
 		waitTime: otaService.waitTimeInSeconds,
 		subnets:  otaService.subnets,
+		username: otaService.username,
+		password: otaService.password,
 	}
 
 	if otaService.includeBetas {
@@ -177,9 +196,9 @@ func (o *OTAService) Setup() error {
 		}
 		http.NotFound(w, r)
 	})
-	o.server = &http.Server{Addr: fmt.Sprintf(":%v", o.serverPort), Handler: o.muxServer}
+	o.server = &http.Server{Handler: o.muxServer}
 
-	go o.server.ListenAndServe()
+	go o.server.Serve(o.listener)
 
 	log.Infof("OTA HTTP server listening on port %v", o.serverPort)
 
@@ -205,7 +224,10 @@ func (o *OTAService) Setup() error {
 		}
 
 		// Only set the model flag if a discovered device has an out-of-date firmware.
-		if (o.devices[device.ID].FirmwareVersion != remoteFirmware.Version) || (o.includeBetas && o.devices[device.ID].FirmwareVersion != remoteFirmware.BetaVersion) {
+		deviceVersion := extractSemanticVersion(o.devices[device.ID].FirmwareVersion)
+		remoteVersion := extractSemanticVersion(remoteFirmware.Version)
+		remoteBetaVersion := extractSemanticVersion(remoteFirmware.BetaVersion)
+		if isVersionLessThan(deviceVersion, remoteVersion) || (o.includeBetas && remoteBetaVersion != "" && isVersionLessThan(deviceVersion, remoteBetaVersion)) {
 			o.devices[device.ID].FirmwareNewestVersion = remoteFirmware
 		}
 	}
@@ -535,7 +557,10 @@ func (o *OTAService) refreshFirmwareTargets() error {
 			continue
 		}
 
-		if (o.devices[device.ID].FirmwareVersion != remoteFirmware.Version) || (o.includeBetas && o.devices[device.ID].FirmwareVersion != remoteFirmware.BetaVersion) {
+		deviceVersion := extractSemanticVersion(o.devices[device.ID].FirmwareVersion)
+		remoteVersion := extractSemanticVersion(remoteFirmware.Version)
+		remoteBetaVersion := extractSemanticVersion(remoteFirmware.BetaVersion)
+		if isVersionLessThan(deviceVersion, remoteVersion) || (o.includeBetas && remoteBetaVersion != "" && isVersionLessThan(deviceVersion, remoteBetaVersion)) {
 			o.devices[device.ID].FirmwareNewestVersion = remoteFirmware
 		}
 	}
