@@ -5,8 +5,20 @@
 
 ![build status](https://github.com/ruimarinho/mota/workflows/Tests/badge.svg?branch=master)
 
-🛵 `mota`  is a mass [Shelly](https://shelly.cloud) device firmware updater based on zeroconf (or bonjour) discovery for local networks using the built-in Over-The-Air (OTA) update interface. It is particularly suited for network setups using VLANs where IoT devices do not have internet connectivity.
+🛵 `mota` is a mass [Shelly](https://shelly.cloud) device firmware updater for local networks using the built-in Over-The-Air (OTA) update interface. It supports Gen1, Gen2 (Plus/Pro), Gen3 and Gen4 devices.
 
+Discovery uses mDNS/zeroconf combined with HTTP subnet scanning, making it reliable even on macOS where `mDNSResponder` can prevent Go-based mDNS libraries from seeing all devices. It is particularly suited for network setups using VLANs where IoT devices do not have internet connectivity.
+
+## Features
+
+- Supports all Shelly generations (Gen1, Gen2 Plus/Pro, Gen3, Gen4) including Zigbee variants
+- mDNS discovery supplemented by HTTP subnet scanning for reliable detection
+- Scan additional subnets with `--subnet` for multi-VLAN setups
+- Stepping-stone upgrades for Gen2+ devices that require firmware 1.3.3 before upgrading to 1.4.0+
+- Filter by model or exclude devices by glob pattern
+- JSON output for scripting (`--json`)
+- `.netrc` authentication support
+- Interactive or forced bulk upgrades
 
 ## Background
 
@@ -21,8 +33,7 @@ If you're planning on isolating your IoT network from the internet, then `mota` 
 Download a [binary release](https://github.com/ruimarinho/mota/releases) or, alternatively, install via go:
 
 ```sh
-❯ go get -u github.com/ruimarinho/mota
-❯ go install github.com/ruimarinho/mota
+go install github.com/ruimarinho/mota@latest
 ```
 
 You can also use Docker (Linux only, as Host mode networking is not available on Windows or macOS):
@@ -42,28 +53,83 @@ brew install mota
 
 ## Usage
 
+### Discover and upgrade
+
 ```sh
-❯ mota
+mota
 ```
 
-If local devices are found and new firmware versions are available for your devices, you will be prompted to interactively choose which devices to update.
+This scans for local Shelly devices and prompts you for interactive updates if new firmware versions are available.
 
-Sometimes Shellies appear to ignore OTA requests and may require multiple attempts to finally update to the requested version. At this time, it is my belief this is an issue with the OTA routines on the OS that powers Shellies.
+### List available updates
+
+```sh
+mota list
+```
+
+### Force upgrades without confirmation
+
+```sh
+mota upgrade --force
+```
+
+> [!TIP]
+> Over the years, Shelly has enhanced its OTA firmware updating process, making it significantly more dependable. Nonetheless, certain devices might not successfully update if they are overloaded with custom scripts or if there is insufficient free memory. For such cases, it is recommended to reboot these devices to facilitate a successful update.
 
 ### CLI
 
-```sh
-❯ mota -help
+```
+mota [command] [flags]
 
-Usage of mota:
-      --beta            Use beta firmwares if available
-      --domain string   Set the search domain for the local network. (default "local")
-  -f, --force           Force upgrades without asking for confirmation
-      --host strings    Use host/IP address(es) instead of device discovery (can be specified multiple times or be comma-separated)
-  -p, --http-port int   HTTP port to listen for OTA requests. If not specified, a random port is chosen.
-      --verbose         Enable verbose mode.
-  -v, --version         Show version information
-  -w, --wait int        Duration in [s] to run discovery. (default 60)
+Commands:
+  upgrade     Discover devices and upgrade firmware (default)
+  list        Discover devices and list available updates
+  version     Show version information
+
+Flags:
+      --beta              Include beta firmwares in the list of available updates
+      --device strings    Use device IP address(es) instead of discovery
+      --domain string     Set the search domain for the local network (default "local")
+      --exclude strings   Exclude devices matching glob pattern(s)
+  -f, --force             Force upgrades without asking for confirmation
+  -p, --http-port int     HTTP port to listen for OTA requests (default: random)
+      --json              Output results as JSON
+      --model strings     Only include devices matching model name(s)
+      --subnet strings    Additional subnet(s) to scan in CIDR notation
+      --verbose           Enable verbose mode
+  -w, --wait int          Duration in [s] to run discovery (default 60)
+```
+
+### Scanning additional subnets
+
+When your Shelly devices are on different VLANs from the machine running `mota`, use `--subnet` to scan those networks:
+
+```sh
+mota list --subnet 192.168.100.0/24,192.168.10.0/24
+```
+
+### Updating specific devices
+
+If you'd like to skip discovery, you may specify one or more devices to check individually:
+
+```sh
+mota --device 192.168.100.10 --device 192.168.100.30
+```
+
+### Filtering by model
+
+Only upgrade devices of a specific model:
+
+```sh
+mota upgrade --model Plus1,Plus2PM
+```
+
+### Excluding devices
+
+Exclude devices by glob pattern:
+
+```sh
+mota upgrade --exclude "Kitchen*" --exclude "shellyplug*"
 ```
 
 ### Authentication
@@ -80,21 +146,25 @@ login <username_2>
 password <password_2>
 ```
 
-### Updating Specific Hosts
-
-If you'd like to skip bonjour discovery, you may specify one or more devices to check individually:
-
-```sh
-mota --host=192.168.100.10 --host=192.168.100.30
-```
-
-### Beta Firmwares
+### Beta firmwares
 
 You may enable support for beta firmwares (if available):
 
 ```sh
 mota --beta
 ```
+
+### JSON output
+
+Output device status as JSON for scripting:
+
+```sh
+mota list --json
+```
+
+### Stepping-stone upgrades
+
+Gen2+ devices running firmware below 1.3.3 cannot jump directly to 1.4.0+. `mota` automatically detects this and upgrades to the mandatory 1.3.3 intermediate version first, then continues to the latest firmware on a second pass.
 
 ## License
 
