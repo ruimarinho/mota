@@ -37,12 +37,10 @@ builds:
 universal_binaries:
   - replace: true
 
-dockers_v2:
-  - images:
-      - "ruimarinho/mota"
-    tags:
-      - "latest"
-      - "{{ .Version }}"
+dockers:
+  - image_templates:
+      - "ruimarinho/mota:latest"
+      - "ruimarinho/mota:{{ .Version }}"
 
 homebrew_casks:
   - repository:
