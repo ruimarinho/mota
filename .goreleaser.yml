@@ -1,50 +1,56 @@
+version: 2
+
 archives:
-  - format: tar.gz
-    replacements:
-      amd64: x86_64
-      darwin: macOS
-      linux: Linux
-      windows: Windows
+  - formats:
+      - tar.gz
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_
+      {{- if eq .Os "darwin" }}macOS
+      {{- else if eq .Os "linux" }}Linux
+      {{- else if eq .Os "windows" }}Windows
+      {{- else }}{{ .Os }}{{ end }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
 
-brews:
-  - tap:
+builds:
+  - binary: mota
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+      - goos: linux
+        goarch: arm64
+    main: .
+
+universal_binaries:
+  - replace: true
+
+dockers_v2:
+  - images:
+      - "ruimarinho/mota"
+    tags:
+      - "latest"
+      - "{{ .Version }}"
+
+homebrew_casks:
+  - repository:
       owner: ruimarinho
       name: homebrew-tap
     homepage: "https://github.com/ruimarinho/mota"
     commit_author:
       name: goreleaserbot
       email: ruipmarinho+goreleaserbot@gmail.com
-    folder: Formula
     description: "A Shelly device firmware updater based on zeroconf (or bonjour) discovery for local networks using their built-in Over-The-Air update interface. It is suited for network setups where IoT devices do not have internet connectivity."
     license: "MIT"
-    test: |
-      system "#{bin}/mota --version"
-
-build:
-  binary: mota
-  env:
-    - CGO_ENABLED=0
-  goos:
-    - darwin
-    - linux
-    - windows
-  goarch:
-    - amd64
-    - arm64
-  ignore:
-    - goos: windows
-      goarch: arm64
-    - goos: linux
-      goarch: arm64
-  main: .
-
-dockers:
- - image_templates:
-    - "ruimarinho/mota:latest"
-    - "ruimarinho/mota:{{ .Version }}"
-
-universal_binaries:
-  - replace: true
