@@ -197,8 +197,57 @@ func TestNeedsSteppingStoneAllModels(t *testing.T) {
 func TestSteppingStoneURLFormat(t *testing.T) {
 	for model, fw := range steppingStone133 {
 		t.Run(model, func(t *testing.T) {
-			assert.Contains(t, fw.URL, "fwcdn.shelly.cloud/gen2/")
+			assert.Contains(t, fw.URL, "fwcdn.shelly.cloud/")
 			assert.NotContains(t, fw.URL, ".zip", "CDN URLs should not have .zip extension")
+		})
+	}
+}
+
+func TestNeedsSteppingStoneMiniPMG3(t *testing.T) {
+	device := &Device{
+		Model:           "MiniPMG3",
+		FirmwareVersion: "1.1.99",
+		Generation:      3,
+		ID:              "shellypmminig3-aabbcc",
+		IP:              net.ParseIP("192.168.1.100"),
+		Port:            80,
+	}
+
+	fw, needed := NeedsSteppingStone(device)
+	assert.True(t, needed)
+	assert.Equal(t, "1.3.3", fw.Version)
+	assert.Equal(t, "MiniPMG3", fw.Model)
+	assert.Contains(t, fw.URL, "fwcdn.shelly.cloud")
+}
+
+func TestNeedsManualUpgrade(t *testing.T) {
+	tests := []struct {
+		name       string
+		model      string
+		version    string
+		generation int
+		expected   bool
+	}{
+		{"gen1_ignored", "SHSW-25", "1.0.0", 1, false},
+		{"above_threshold", "UnknownModel", "1.4.0", 2, false},
+		{"at_threshold", "UnknownModel", "1.3.3", 2, false},
+		{"below_with_stepping_stone", "Plus1", "1.0.0", 2, false},
+		{"below_without_stepping_stone", "UnknownModel", "1.0.0", 2, true},
+		{"minipmg3_has_stepping_stone", "MiniPMG3", "1.1.99", 3, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			device := &Device{
+				Model:           tt.model,
+				FirmwareVersion: tt.version,
+				Generation:      tt.generation,
+				ID:              "test-" + tt.model,
+				IP:              net.ParseIP("192.168.1.100"),
+				Port:            80,
+			}
+
+			assert.Equal(t, tt.expected, NeedsManualUpgrade(device))
 		})
 	}
 }

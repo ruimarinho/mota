@@ -223,6 +223,12 @@ func (o *OTAService) Setup() error {
 			continue
 		}
 
+		// Skip devices below 1.3.3 that have no stepping-stone firmware available.
+		// These must be upgraded manually to avoid bricking.
+		if NeedsManualUpgrade(o.devices[device.ID]) {
+			continue
+		}
+
 		// Only set the model flag if a discovered device has an out-of-date firmware.
 		deviceVersion := extractSemanticVersion(o.devices[device.ID].FirmwareVersion)
 		remoteVersion := extractSemanticVersion(remoteFirmware.Version)
@@ -557,6 +563,10 @@ func (o *OTAService) refreshFirmwareTargets() error {
 			continue
 		}
 
+		if NeedsManualUpgrade(o.devices[device.ID]) {
+			continue
+		}
+
 		deviceVersion := extractSemanticVersion(o.devices[device.ID].FirmwareVersion)
 		remoteVersion := extractSemanticVersion(remoteFirmware.Version)
 		remoteBetaVersion := extractSemanticVersion(remoteFirmware.BetaVersion)
@@ -570,13 +580,14 @@ func (o *OTAService) refreshFirmwareTargets() error {
 
 // DeviceStatus holds a summary of a device's upgrade state for display.
 type DeviceStatus struct {
-	Name           string `json:"name"`
-	ID             string `json:"id"`
-	Model          string `json:"model"`
-	CurrentVersion string `json:"current_version"`
-	TargetVersion  string `json:"target_version,omitempty"`
-	UpToDate       bool   `json:"up_to_date"`
-	SteppingStone  bool   `json:"stepping_stone"`
+	Name                 string `json:"name"`
+	ID                   string `json:"id"`
+	Model                string `json:"model"`
+	CurrentVersion       string `json:"current_version"`
+	TargetVersion        string `json:"target_version,omitempty"`
+	UpToDate             bool   `json:"up_to_date"`
+	SteppingStone        bool   `json:"stepping_stone"`
+	ManualUpgradeRequired bool  `json:"manual_upgrade_required,omitempty"`
 }
 
 // ListDeviceStatus returns a list of DeviceStatus entries after Setup has
@@ -591,7 +602,9 @@ func (o *OTAService) ListDeviceStatus() []DeviceStatus {
 			CurrentVersion: device.FirmwareVersion,
 		}
 
-		if (device.FirmwareNewestVersion == RemoteFirmware{}) {
+		if NeedsManualUpgrade(device) {
+			ds.ManualUpgradeRequired = true
+		} else if (device.FirmwareNewestVersion == RemoteFirmware{}) {
 			ds.UpToDate = true
 		} else {
 			ds.TargetVersion = device.FirmwareNewestVersion.Version

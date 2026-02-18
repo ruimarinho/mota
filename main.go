@@ -160,7 +160,9 @@ func runList(cmd *cobra.Command, args []string) error {
 		if s.UpToDate {
 			target = "(up to date)"
 		}
-		if s.SteppingStone {
+		if s.ManualUpgradeRequired {
+			note = "manual upgrade required"
+		} else if s.SteppingStone {
 			note = "stepping-stone"
 		}
 		fmt.Printf("%-40s %-14s %-20s %-20s %s\n", s.Name, s.Model, s.CurrentVersion, target, note)

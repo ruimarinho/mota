@@ -27,7 +27,7 @@ import (
 // Pro4PM. Contributions with verified hashes are welcome.
 //
 // Gen4 devices shipped after firmware 1.4.0 and do not need entries.
-// Newer Gen3 models (MiniPMG3, 1MiniG3, 1PMMiniG3, 2PMG3, 0-10VDimmerG3,
+// Newer Gen3 models (1MiniG3, 1PMMiniG3, 2PMG3, 0-10VDimmerG3,
 // RGBWPMminiG3, EMXG3, HTG3, FloodG3, PlugSG3, DimmerG3) also shipped
 // with firmware >= 1.3.3 and do not need entries.
 var steppingStone133 = map[string]RemoteFirmware{
@@ -85,6 +85,11 @@ var steppingStone133 = map[string]RemoteFirmware{
 		Model:   "1PMG3",
 		Version: "1.3.3",
 		URL:     "https://fwcdn.shelly.cloud/gen2/S1PMG3/0527974777080c85f3250c99f33ea3adff7da4ee02f03609b3fc03020ded9666",
+	},
+	"MiniPMG3": {
+		Model:   "MiniPMG3",
+		Version: "1.3.3",
+		URL:     "https://fwcdn.shelly.cloud/gen2-ntest/MiniPMG3/843bff33b2c98e182749436115b23a0908cc67a6c3838bf5dc13385412004bd7",
 	},
 }
 
@@ -180,4 +185,21 @@ func NeedsSteppingStone(device *Device) (RemoteFirmware, bool) {
 		device.String(), device.FirmwareVersion, steppingStoneVersion, device.Model, steppingStoneVersion)
 
 	return RemoteFirmware{}, false
+}
+
+// NeedsManualUpgrade returns true if a Gen2+ device is running firmware
+// below the stepping-stone threshold (1.3.3) but no stepping-stone
+// firmware is available for its model. Such devices must be upgraded
+// manually and should not be offered an OTA update.
+func NeedsManualUpgrade(device *Device) bool {
+	if device.Generation < 2 {
+		return false
+	}
+
+	if !isVersionLessThan(extractSemanticVersion(device.FirmwareVersion), steppingStoneVersion) {
+		return false
+	}
+
+	_, hasSteppingStone := steppingStone133[device.Model]
+	return !hasSteppingStone
 }
