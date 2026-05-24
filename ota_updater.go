@@ -230,10 +230,7 @@ func (o *OTAService) Setup() error {
 		}
 
 		// Only set the model flag if a discovered device has an out-of-date firmware.
-		deviceVersion := extractSemanticVersion(o.devices[device.ID].FirmwareVersion)
-		remoteVersion := extractSemanticVersion(remoteFirmware.Version)
-		remoteBetaVersion := extractSemanticVersion(remoteFirmware.BetaVersion)
-		if isVersionLessThan(deviceVersion, remoteVersion) || (o.includeBetas && remoteBetaVersion != "" && isVersionLessThan(deviceVersion, remoteBetaVersion)) {
+		if shouldUpdateFirmware(o.devices[device.ID].FirmwareVersion, remoteFirmware, o.includeBetas) {
 			o.devices[device.ID].FirmwareNewestVersion = remoteFirmware
 		}
 	}
@@ -567,10 +564,7 @@ func (o *OTAService) refreshFirmwareTargets() error {
 			continue
 		}
 
-		deviceVersion := extractSemanticVersion(o.devices[device.ID].FirmwareVersion)
-		remoteVersion := extractSemanticVersion(remoteFirmware.Version)
-		remoteBetaVersion := extractSemanticVersion(remoteFirmware.BetaVersion)
-		if isVersionLessThan(deviceVersion, remoteVersion) || (o.includeBetas && remoteBetaVersion != "" && isVersionLessThan(deviceVersion, remoteBetaVersion)) {
+		if shouldUpdateFirmware(o.devices[device.ID].FirmwareVersion, remoteFirmware, o.includeBetas) {
 			o.devices[device.ID].FirmwareNewestVersion = remoteFirmware
 		}
 	}
@@ -580,14 +574,14 @@ func (o *OTAService) refreshFirmwareTargets() error {
 
 // DeviceStatus holds a summary of a device's upgrade state for display.
 type DeviceStatus struct {
-	Name                 string `json:"name"`
-	ID                   string `json:"id"`
-	Model                string `json:"model"`
-	CurrentVersion       string `json:"current_version"`
-	TargetVersion        string `json:"target_version,omitempty"`
-	UpToDate             bool   `json:"up_to_date"`
-	SteppingStone        bool   `json:"stepping_stone"`
-	ManualUpgradeRequired bool  `json:"manual_upgrade_required,omitempty"`
+	Name                  string `json:"name"`
+	ID                    string `json:"id"`
+	Model                 string `json:"model"`
+	CurrentVersion        string `json:"current_version"`
+	TargetVersion         string `json:"target_version,omitempty"`
+	UpToDate              bool   `json:"up_to_date"`
+	SteppingStone         bool   `json:"stepping_stone"`
+	ManualUpgradeRequired bool   `json:"manual_upgrade_required,omitempty"`
 }
 
 // ListDeviceStatus returns a list of DeviceStatus entries after Setup has

@@ -164,6 +164,37 @@ func isVersionLessThan(a, b string) bool {
 	return aPatch < bPatch
 }
 
+func hasProductionFirmwareMarker(v string) bool {
+	v = strings.ToLower(v)
+	return strings.Contains(v, "g4prod") || strings.Contains(v, "-prod")
+}
+
+func isFirmwareUpdateCandidate(currentVersion, candidateVersion string) bool {
+	if candidateVersion == "" {
+		return false
+	}
+
+	current := extractSemanticVersion(currentVersion)
+	candidate := extractSemanticVersion(candidateVersion)
+	if isVersionLessThan(current, candidate) {
+		return true
+	}
+
+	// Some Gen4 factory/production builds use versions such as
+	// "1.7.99-g4prod3" while Shelly's stable channel moves them to a lower
+	// public semver such as "1.7.5". Trust the advertised channel target
+	// when the production marker is present and the exact version changed.
+	return hasProductionFirmwareMarker(currentVersion) && currentVersion != candidateVersion
+}
+
+func shouldUpdateFirmware(currentVersion string, remoteFirmware RemoteFirmware, includeBetas bool) bool {
+	if isFirmwareUpdateCandidate(currentVersion, remoteFirmware.Version) {
+		return true
+	}
+
+	return includeBetas && isFirmwareUpdateCandidate(currentVersion, remoteFirmware.BetaVersion)
+}
+
 // NeedsSteppingStone checks if a Gen2+ device requires a stepping-stone
 // upgrade to 1.3.3 before it can be upgraded to 1.4.0+. Returns the
 // stepping-stone RemoteFirmware and true if needed, zero value and false otherwise.

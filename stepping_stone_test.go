@@ -99,6 +99,60 @@ func TestIsVersionLessThan(t *testing.T) {
 	}
 }
 
+func TestShouldUpdateFirmware(t *testing.T) {
+	tests := []struct {
+		name           string
+		currentVersion string
+		remoteFirmware RemoteFirmware
+		includeBetas   bool
+		expect         bool
+	}{
+		{
+			name:           "stable semver upgrade",
+			currentVersion: "1.7.3",
+			remoteFirmware: RemoteFirmware{Version: "1.7.5"},
+			expect:         true,
+		},
+		{
+			name:           "same stable version",
+			currentVersion: "1.7.5",
+			remoteFirmware: RemoteFirmware{Version: "1.7.5"},
+			expect:         false,
+		},
+		{
+			name:           "Gen4 production build moves to stable channel",
+			currentVersion: "1.7.99-g4prod3",
+			remoteFirmware: RemoteFirmware{Version: "1.7.5"},
+			expect:         true,
+		},
+		{
+			name:           "same Gen4 production build is current",
+			currentVersion: "1.7.99-dimmerg4-prod1",
+			remoteFirmware: RemoteFirmware{Version: "1.7.99-dimmerg4-prod1"},
+			expect:         false,
+		},
+		{
+			name:           "beta ignored when not requested",
+			currentVersion: "1.7.5",
+			remoteFirmware: RemoteFirmware{Version: "1.7.5", BetaVersion: "2.0.0-beta1"},
+			expect:         false,
+		},
+		{
+			name:           "beta included when requested",
+			currentVersion: "1.7.5",
+			remoteFirmware: RemoteFirmware{Version: "1.7.5", BetaVersion: "2.0.0-beta1"},
+			includeBetas:   true,
+			expect:         true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expect, shouldUpdateFirmware(tt.currentVersion, tt.remoteFirmware, tt.includeBetas))
+		})
+	}
+}
+
 func TestNeedsSteppingStone(t *testing.T) {
 	device := &Device{
 		Model:           "Plus1",
