@@ -17,6 +17,7 @@ var shellies = map[string]string{
 	"1PMMiniG4":       "Shelly 1 PM Mini Gen4",
 	"2PMG3":           "Shelly 2 PM Gen3",
 	"2PMG4":           "Shelly 2 PM Gen4",
+	"S2PMG4ZB":        "Shelly 2 PM Gen4",
 	"4Pro":            "Shelly 4Pro",
 	"DimmerG3":        "Shelly Dimmer Gen3",
 	"DimmerG4":        "Shelly Dimmer Gen4",

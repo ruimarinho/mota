@@ -44,6 +44,11 @@ func TestDeviceFamilyFriendlyName(t *testing.T) {
 		assert.Equal(t, "Shelly Mini 1 PM Gen4", d.FamilyFriendlyName())
 	})
 
+	t.Run("known Gen4 2PM Zigbee model", func(t *testing.T) {
+		d := Device{Model: "S2PMG4ZB"}
+		assert.Equal(t, "Shelly 2 PM Gen4", d.FamilyFriendlyName())
+	})
+
 	t.Run("unknown model", func(t *testing.T) {
 		d := Device{Model: "UNKNOWN-MODEL"}
 		assert.Equal(t, "UNKNOWN-MODEL", d.FamilyFriendlyName())

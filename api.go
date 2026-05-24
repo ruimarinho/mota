@@ -109,7 +109,6 @@ var gen2PlusAPINames = map[string]string{
 // (e.g. Zigbee suffix) that share firmware with the base model.
 var gen2PlusDeviceAliases = map[string]string{
 	"1PMMiniG4": "Mini1PMG4",
-	"S2PMG4ZB":  "2PMG4",
 }
 
 // var gen3Models = []string{
