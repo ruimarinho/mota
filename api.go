@@ -79,6 +79,7 @@ var gen2PlusModels = []string{
 	"1G4",
 	"1MiniG4",
 	"1PMG4",
+	"Mini1PMG4",
 	"2PMG4",
 	"FloodG4",
 	"i4G4",
@@ -107,7 +108,8 @@ var gen2PlusAPINames = map[string]string{
 // internal names used in gen2PlusModels. Some devices report variant names
 // (e.g. Zigbee suffix) that share firmware with the base model.
 var gen2PlusDeviceAliases = map[string]string{
-	"S2PMG4ZB": "2PMG4",
+	"1PMMiniG4": "Mini1PMG4",
+	"S2PMG4ZB":  "2PMG4",
 }
 
 // var gen3Models = []string{
@@ -168,9 +170,9 @@ type gen2AltVariant struct {
 }
 
 type gen2response struct {
-	Stable gen2FirmwareInfo           `json:"stable"`
-	Beta   gen2FirmwareInfo           `json:"beta"`
-	Alt    map[string]gen2AltVariant  `json:"alt"`
+	Stable gen2FirmwareInfo          `json:"stable"`
+	Beta   gen2FirmwareInfo          `json:"beta"`
+	Alt    map[string]gen2AltVariant `json:"alt"`
 }
 
 // APIClientOption is an option interface for APIClient.

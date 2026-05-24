@@ -75,6 +75,76 @@ func TestFetchVersionsGen2(t *testing.T) {
 	assert.Equal(t, "1.1.0-beta", fw.BetaVersion)
 }
 
+func TestFetchVersionsMini1PMG4(t *testing.T) {
+	gen1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path == "/files/firmware" {
+			w.Write([]byte(`{"isok": true, "data": {}}`))
+			return
+		}
+	}))
+	defer gen1Server.Close()
+
+	gen2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path == "/update/Mini1PMG4" {
+			w.Write([]byte(fmt.Sprintf(`{
+				"stable": {
+					"version": "1.7.5",
+					"build_id": "20260311-095832/1.7.5-g9979d16",
+					"url": "http://%s/firmware/Mini1PMG4_stable.zip"
+				},
+				"beta": {
+					"version": "2.0.0-beta1",
+					"build_id": "20260423-102550/2.0.0-beta1-g8c7700a",
+					"url": "http://%s/firmware/Mini1PMG4_beta.zip"
+				},
+				"alt": {
+					"Mini1PMG4ZB": {
+						"stable": {
+							"version": "1.7.5",
+							"build_id": "20260311-095848/1.7.5-g9979d16",
+							"url": "http://%s/firmware/Mini1PMG4ZB_stable.zip"
+						},
+						"beta": {
+							"version": "2.0.0-beta1",
+							"build_id": "20260423-102603/2.0.0-beta1-g8c7700a",
+							"url": "http://%s/firmware/Mini1PMG4ZB_beta.zip"
+						}
+					}
+				}
+			}`, req.Host, req.Host, req.Host, req.Host)))
+			return
+		}
+
+		w.Write([]byte(`{"stable":{"version":"","build_id":"","url":""},"beta":{"version":"","build_id":"","url":""}}`))
+	}))
+	defer gen2Server.Close()
+
+	client := NewAPIClient(WithBaseURL(gen1Server.URL), WithGen2BaseURL(gen2Server.URL))
+	firmwares, err := client.FetchVersions()
+	assert.Nil(t, err)
+
+	fw, ok := firmwares["Mini1PMG4"]
+	assert.True(t, ok)
+	assert.Equal(t, "1.7.5", fw.Version)
+	assert.Equal(t, "2.0.0-beta1", fw.BetaVersion)
+
+	alt, ok := firmwares["Mini1PMG4ZB"]
+	assert.True(t, ok)
+	assert.Equal(t, "Mini1PMG4ZB", alt.Model)
+	assert.Equal(t, "1.7.5", alt.Version)
+	assert.Equal(t, "2.0.0-beta1", alt.BetaVersion)
+
+	alias, err := client.GetLatestFirmwareAvailable("1PMMiniG4")
+	assert.Nil(t, err)
+	assert.Equal(t, "Mini1PMG4", alias.Model)
+	assert.Equal(t, "1.7.5", alias.Version)
+
+	alt, err = client.GetLatestFirmwareAvailable("Mini1PMG4ZB")
+	assert.Nil(t, err)
+	assert.Equal(t, "Mini1PMG4ZB", alt.Model)
+	assert.Equal(t, "1.7.5", alt.Version)
+}
+
 func TestFetchVersionsCaching(t *testing.T) {
 	var callCount int32
 
