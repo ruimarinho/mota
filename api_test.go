@@ -145,6 +145,46 @@ func TestFetchVersionsMini1PMG4(t *testing.T) {
 	assert.Equal(t, "1.7.5", alt.Version)
 }
 
+func TestGetLatestFirmwareAvailableDoesNotCrossZigbeeVariant(t *testing.T) {
+	hadAlias := false
+	previousAlias := gen2PlusDeviceAliases["S2PMG4ZB"]
+	if _, ok := gen2PlusDeviceAliases["S2PMG4ZB"]; ok {
+		hadAlias = true
+	}
+	gen2PlusDeviceAliases["S2PMG4ZB"] = "2PMG4"
+	defer func() {
+		if hadAlias {
+			gen2PlusDeviceAliases["S2PMG4ZB"] = previousAlias
+		} else {
+			delete(gen2PlusDeviceAliases, "S2PMG4ZB")
+		}
+	}()
+
+	client := NewAPIClient()
+	client.firmwares = map[string]RemoteFirmware{
+		"2PMG4": {
+			Model:   "2PMG4",
+			Version: "1.7.5",
+			URL:     "http://example.com/firmware/S2PMG4_stable.zip",
+		},
+	}
+
+	_, err := client.GetLatestFirmwareAvailable("S2PMG4ZB")
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "not found")
+
+	client.firmwares["S2PMG4ZB"] = RemoteFirmware{
+		Model:   "S2PMG4ZB",
+		Version: "1.7.5",
+		URL:     "http://example.com/firmware/S2PMG4ZB_stable.zip",
+	}
+
+	fw, err := client.GetLatestFirmwareAvailable("S2PMG4ZB")
+	assert.Nil(t, err)
+	assert.Equal(t, "S2PMG4ZB", fw.Model)
+	assert.Contains(t, fw.URL, "S2PMG4ZB")
+}
+
 func TestFetchVersionsCaching(t *testing.T) {
 	var callCount int32
 

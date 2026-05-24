@@ -105,8 +105,8 @@ var gen2PlusAPINames = map[string]string{
 }
 
 // gen2PlusDeviceAliases maps device-reported model names to the canonical
-// internal names used in gen2PlusModels. Some devices report variant names
-// (e.g. Zigbee suffix) that share firmware with the base model.
+// internal names used in gen2PlusModels. These aliases must not cross firmware
+// variants; Zigbee and Matter/base builds have separate firmware artifacts.
 var gen2PlusDeviceAliases = map[string]string{
 	"1PMMiniG4": "Mini1PMG4",
 }
@@ -139,6 +139,14 @@ func (f *RemoteFirmware) StableID() string {
 
 func (f *RemoteFirmware) BetaID() string {
 	return fmt.Sprintf("%s-%s@beta", f.Model, f.BetaVersion)
+}
+
+func isZigbeeFirmwareModel(model string) bool {
+	return strings.HasSuffix(model, "ZB")
+}
+
+func sameFirmwareVariant(a, b string) bool {
+	return isZigbeeFirmwareModel(a) == isZigbeeFirmwareModel(b)
 }
 
 // APIClient is a struct that represents an API client that fetches
@@ -426,10 +434,9 @@ func (client *APIClient) GetLatestFirmwareAvailable(model string) (RemoteFirmwar
 		return firmware, nil
 	}
 
-	// Try device alias: some devices report variant names (e.g. "S2PMG4ZB")
-	// that share firmware with a base model (e.g. "2PMG4").
+	// Try device alias for renamed models, without crossing firmware variants.
 	if canonical, ok := gen2PlusDeviceAliases[model]; ok {
-		if firmware, ok := firmwares[canonical]; ok {
+		if firmware, ok := firmwares[canonical]; ok && sameFirmwareVariant(model, firmware.Model) {
 			return firmware, nil
 		}
 	}
@@ -438,7 +445,7 @@ func (client *APIClient) GetLatestFirmwareAvailable(model string) (RemoteFirmwar
 	// while firmware is cached under the internal name (e.g. "1G3").
 	for internal, api := range gen2PlusAPINames {
 		if api == model {
-			if firmware, ok := firmwares[internal]; ok {
+			if firmware, ok := firmwares[internal]; ok && sameFirmwareVariant(model, firmware.Model) {
 				return firmware, nil
 			}
 		}
